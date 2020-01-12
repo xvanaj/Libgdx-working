@@ -4,7 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
 import com.mygdx.game.Simulator;
-import com.mygdx.game.constants.Settings;
+import com.mygdx.game.Settings;
 
 public class DesktopLauncher {
 	public static void main (String[] arg) {

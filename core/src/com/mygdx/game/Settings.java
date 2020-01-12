@@ -1,4 +1,4 @@
-package com.mygdx.game.constants;
+package com.mygdx.game;
 
 import lombok.Getter;
 import lombok.Setter;

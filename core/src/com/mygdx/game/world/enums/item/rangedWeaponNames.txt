@@ -1,0 +1,4 @@
+short bow,1,100
+crossbow,1,100
+composite bow,1,100
+long bow,1,100

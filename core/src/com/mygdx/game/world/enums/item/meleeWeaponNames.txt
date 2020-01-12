@@ -1,0 +1,8 @@
+dagger,1,5
+short sword,1,5
+long sword,1,10
+katana,1,100
+two handed sword,1,100
+warhammer,1,100
+halberd,1,100
+spear,1,100

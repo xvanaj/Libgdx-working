@@ -3,7 +3,6 @@ package com.mygdx.game;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.mygdx.game.preferences.AppPreferences;
 import com.mygdx.game.screen.*;
 import com.mygdx.game.screen.editor.EditorScreen;
 import com.mygdx.game.screen.universescreen.CreateUniverseScreen;
@@ -23,7 +22,7 @@ public class Simulator extends Game {
     private EndScreen endScreen;
 
     //gamedata
-    private com.mygdx.game.world.entity.game.Game gameInstance;
+    private com.mygdx.game.world.entity.game.Game game;
 
     private Skin skin;
     private AppPreferences preferences;
@@ -116,12 +115,12 @@ public class Simulator extends Game {
         this.preferences = preferences;
     }
 
-    public com.mygdx.game.world.entity.game.Game getGameInstance() {
-        return gameInstance;
+    public com.mygdx.game.world.entity.game.Game getGame() {
+        return game;
     }
 
-    public void setGameInstance(final com.mygdx.game.world.entity.game.Game gameInstance) {
-        this.gameInstance = gameInstance;
+    public void setGame(final com.mygdx.game.world.entity.game.Game game) {
+        this.game = game;
     }
 
     public Skin getSkin() {
