@@ -1,4 +1,4 @@
-package core.cartezza.mapgenerator.generator.math.pathfind;
+package core.cartezza.mapgenerator.generator.pathfind;
 
 import com.badlogic.gdx.ai.pfa.Connection;
 import com.badlogic.gdx.utils.Array;

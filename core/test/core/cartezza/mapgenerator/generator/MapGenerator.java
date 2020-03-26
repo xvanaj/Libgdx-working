@@ -6,7 +6,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.sudoplay.joise.module.*;
-import core.cartezza.mapgenerator.generator.math.pathfind.TiledSmoothableGraphPath;
+import core.cartezza.mapgenerator.generator.pathfind.TiledSmoothableGraphPath;
 import core.cartezza.mapgenerator.generator.pathfind.TiledElevationDistance;
 import core.cartezza.mapgenerator.generator.pathfind.TiledTerrainGraph;
 import core.cartezza.mapgenerator.generator.pathfind.TiledTerrainNode;

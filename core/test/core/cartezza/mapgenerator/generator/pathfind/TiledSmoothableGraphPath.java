@@ -1,4 +1,4 @@
-package core.cartezza.mapgenerator.generator.math.pathfind;
+package core.cartezza.mapgenerator.generator.pathfind;
 
 import com.badlogic.gdx.ai.pfa.DefaultGraphPath;
 import com.badlogic.gdx.ai.pfa.SmoothableGraphPath;

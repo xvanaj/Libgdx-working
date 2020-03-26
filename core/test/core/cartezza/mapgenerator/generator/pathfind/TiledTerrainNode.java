@@ -2,7 +2,6 @@ package core.cartezza.mapgenerator.generator.pathfind;
 
 import com.badlogic.gdx.ai.pfa.Connection;
 import com.badlogic.gdx.utils.Array;
-import core.cartezza.mapgenerator.generator.math.pathfind.TiledNode;
 import squidpony.squidmath.Coord;
 
 public class TiledTerrainNode extends TiledNode<TiledTerrainNode> {

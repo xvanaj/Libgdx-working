@@ -1,4 +1,4 @@
-package core.cartezza.mapgenerator.generator.math.pathfind;
+package core.cartezza.mapgenerator.generator.pathfind;
 
 import com.badlogic.gdx.ai.utils.Collision;
 import com.badlogic.gdx.ai.utils.Ray;
