@@ -1,4 +1,4 @@
-package core.cartezza.mapgenerator.generator;
+package core.cartezza.mapgenerator.generator.domain;
 
 import java.util.ArrayList;
 import java.util.List;

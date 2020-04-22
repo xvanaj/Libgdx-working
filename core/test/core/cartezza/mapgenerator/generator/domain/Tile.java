@@ -1,12 +1,22 @@
-package core.cartezza.mapgenerator.generator;
+package core.cartezza.mapgenerator.generator.domain;
 
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.mygdx.game.asset.Utility;
+import core.cartezza.mapgenerator.generator.MapGenerator;
+import core.cartezza.mapgenerator.generator.MoistureType;
+import core.cartezza.mapgenerator.generator.River;
 import core.map.common.Direction;
 import squidpony.squidmath.Coord;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-public class Tile {
+public class Tile extends Actor {
+
+    public static int PIXEL_SIZE = 16;
+
     public HeightType heightType;
     public double heightValue;
     public double originalHeightValue;
@@ -35,28 +45,26 @@ public class Tile {
 
     public int riverSize;
 
-    public Tile()
-    {
+    public Tile() {
     }
 
-    public void updateBitmask()
-    {
+    public void updateBitmask() {
         int count = 0;
+        //flipped top/bottom
 
-        if (top.heightType == heightType)
+        if (bottom.heightType == heightType)
             count += 1;
         if (right.heightType == heightType)
-            count += 2;
-        if (bottom.heightType == heightType)
             count += 4;
-        if (left.heightType == heightType)
+        if (top.heightType == heightType)
             count += 8;
+        if (left.heightType == heightType)
+            count += 2;
 
         bitmask = count;
     }
 
-    public void updateBiomeBitmask()
-    {
+    public void updateBiomeBitmask() {
         int count = 0;
 
         if (collidable && top != null && top.biomeType == biomeType)
@@ -71,22 +79,20 @@ public class Tile {
         biomeBitmask = count;
     }
 
-    public int getRiverNeighborCount(River river)
-    {
+    public int getRiverNeighborCount(River river) {
         int count = 0;
-        if (left.rivers.size() > 0 && left.rivers.contains (river))
+        if (left.rivers.size() > 0 && left.rivers.contains(river))
             count++;
-        if (right.rivers.size() > 0 && right.rivers.contains (river))
+        if (right.rivers.size() > 0 && right.rivers.contains(river))
             count++;
-        if (top.rivers.size() > 0 && top.rivers.contains (river))
+        if (top.rivers.size() > 0 && top.rivers.contains(river))
             count++;
-        if (bottom.rivers.size() > 0 && bottom.rivers.contains (river))
+        if (bottom.rivers.size() > 0 && bottom.rivers.contains(river))
             count++;
         return count;
     }
 
-    public Direction getLowestNeighbor(MapGenerator generator)
-    {
+    public Direction getLowestNeighbor(MapGenerator generator) {
         double l = generator.getHeightValue(left);
         double r = generator.getHeightValue(right);
         double b = generator.getHeightValue(bottom);
@@ -105,134 +111,124 @@ public class Tile {
 
     }
 
-    public void setRiverPath(River river)
-    {
+    public void setRiverPath(River river) {
         if (!collidable)
             return;
 
-        if (!rivers.contains (river)) {
-            rivers.add (river);
+        if (!rivers.contains(river)) {
+            rivers.add(river);
         }
     }
 
-    private void setRiverTile(River river)
-    {
-        setRiverPath (river);
+    private void setRiverTile(River river) {
+        setRiverPath(river);
         heightType = HeightType.River;
         collidable = false;
     }
 
     // This function got messy.  Sorry.
-    public void digRiver(River river, int size)
-    {
-        setRiverTile (river);
+    public void digRiver(River river, int size) {
+        setRiverTile(river);
         riverSize = size;
 
         if (size == 1) {
-            if (bottom != null)
-            {
-                bottom.setRiverTile (river);
-                if (bottom.right != null) bottom.right.setRiverTile (river);
+            if (bottom != null) {
+                bottom.setRiverTile(river);
+                if (bottom.right != null) bottom.right.setRiverTile(river);
             }
-            if (right != null) right.setRiverTile (river);
+            if (right != null) right.setRiverTile(river);
         }
 
         if (size == 2) {
             if (bottom != null) {
-                bottom.setRiverTile (river);
-                if (bottom.right != null) bottom.right.setRiverTile (river);
+                bottom.setRiverTile(river);
+                if (bottom.right != null) bottom.right.setRiverTile(river);
             }
             if (right != null) {
-                right.setRiverTile (river);
+                right.setRiverTile(river);
             }
             if (top != null) {
-                top.setRiverTile (river);
-                if (top.left != null) top.left.setRiverTile (river);
-                if (top.right != null)top.right.setRiverTile (river);
+                top.setRiverTile(river);
+                if (top.left != null) top.left.setRiverTile(river);
+                if (top.right != null) top.right.setRiverTile(river);
             }
             if (left != null) {
-                left.setRiverTile (river);
-                if (left.bottom != null) left.bottom.setRiverTile (river);
+                left.setRiverTile(river);
+                if (left.bottom != null) left.bottom.setRiverTile(river);
             }
         }
 
         if (size == 3) {
             if (bottom != null) {
-                bottom.setRiverTile (river);
-                if (bottom.right != null) bottom.right.setRiverTile (river);
-                if (bottom.bottom != null)
-                {
-                    bottom.bottom.setRiverTile (river);
-                    if (bottom.bottom.right != null) bottom.bottom.right.setRiverTile (river);
+                bottom.setRiverTile(river);
+                if (bottom.right != null) bottom.right.setRiverTile(river);
+                if (bottom.bottom != null) {
+                    bottom.bottom.setRiverTile(river);
+                    if (bottom.bottom.right != null) bottom.bottom.right.setRiverTile(river);
                 }
             }
             if (right != null) {
-                right.setRiverTile (river);
-                if (right.right != null)
-                {
-                    right.right.setRiverTile (river);
-                    if (right.right.bottom != null) right.right.bottom.setRiverTile (river);
+                right.setRiverTile(river);
+                if (right.right != null) {
+                    right.right.setRiverTile(river);
+                    if (right.right.bottom != null) right.right.bottom.setRiverTile(river);
                 }
             }
             if (top != null) {
-                top.setRiverTile (river);
-                if (top.left != null) top.left.setRiverTile (river);
-                if (top.right != null)top.right.setRiverTile (river);
+                top.setRiverTile(river);
+                if (top.left != null) top.left.setRiverTile(river);
+                if (top.right != null) top.right.setRiverTile(river);
             }
             if (left != null) {
-                left.setRiverTile (river);
-                if (left.bottom != null) left.bottom.setRiverTile (river);
+                left.setRiverTile(river);
+                if (left.bottom != null) left.bottom.setRiverTile(river);
             }
         }
 
         if (size == 4) {
 
             if (bottom != null) {
-                bottom.setRiverTile (river);
-                if (bottom.right != null) bottom.right.setRiverTile (river);
-                if (bottom.bottom != null)
-                {
-                    bottom.bottom.setRiverTile (river);
-                    if (bottom.bottom.right != null) bottom.bottom.right.setRiverTile (river);
+                bottom.setRiverTile(river);
+                if (bottom.right != null) bottom.right.setRiverTile(river);
+                if (bottom.bottom != null) {
+                    bottom.bottom.setRiverTile(river);
+                    if (bottom.bottom.right != null) bottom.bottom.right.setRiverTile(river);
                 }
             }
             if (right != null) {
-                right.setRiverTile (river);
-                if (right.right != null)
-                {
-                    right.right.setRiverTile (river);
-                    if (right.right.bottom != null) right.right.bottom.setRiverTile (river);
+                right.setRiverTile(river);
+                if (right.right != null) {
+                    right.right.setRiverTile(river);
+                    if (right.right.bottom != null) right.right.bottom.setRiverTile(river);
                 }
             }
             if (top != null) {
-                top.setRiverTile (river);
+                top.setRiverTile(river);
                 if (top.right != null) {
-                    top.right.setRiverTile (river);
-                    if (top.right.right != null) top.right.right.setRiverTile (river);
+                    top.right.setRiverTile(river);
+                    if (top.right.right != null) top.right.right.setRiverTile(river);
                 }
-                if (top.top != null)
-                {
-                    top.top.setRiverTile (river);
-                    if (top.top.right != null) top.top.right.setRiverTile (river);
+                if (top.top != null) {
+                    top.top.setRiverTile(river);
+                    if (top.top.right != null) top.top.right.setRiverTile(river);
                 }
             }
             if (left != null) {
-                left.setRiverTile (river);
+                left.setRiverTile(river);
                 if (left.bottom != null) {
-                    left.bottom.setRiverTile (river);
-                    if (left.bottom.bottom != null) left.bottom.bottom.setRiverTile (river);
+                    left.bottom.setRiverTile(river);
+                    if (left.bottom.bottom != null) left.bottom.bottom.setRiverTile(river);
                 }
 
                 if (left.left != null) {
-                    left.left.setRiverTile (river);
-                    if (left.left.bottom != null) left.left.bottom.setRiverTile (river);
-                    if (left.left.top != null) left.left.top.setRiverTile (river);
+                    left.left.setRiverTile(river);
+                    if (left.left.bottom != null) left.left.bottom.setRiverTile(river);
+                    if (left.left.top != null) left.left.top.setRiverTile(river);
                 }
 
-                if (left.top != null)
-                {
-                    left.top.setRiverTile (river);
-                    if (left.top.top != null) left.top.top.setRiverTile (river);
+                if (left.top != null) {
+                    left.top.setRiverTile(river);
+                    if (left.top.top != null) left.top.top.setRiverTile(river);
                 }
             }
         }
@@ -259,7 +255,7 @@ public class Tile {
     }
 
     public Coord getCoord() {
-        return Coord.get(x,y);
+        return Coord.get(x, y);
     }
 
     public Direction getLowestNeighborNextTo(Direction lowestNeighbor, MapGenerator generator) {
@@ -268,7 +264,7 @@ public class Tile {
         double b = generator.getHeightValue(bottom);
         double t = generator.getHeightValue(top);
 
-        switch(lowestNeighbor) {
+        switch (lowestNeighbor) {
             case N:
                 if (l < r && l < t && l < b)
                     return Direction.W;
@@ -335,5 +331,27 @@ public class Tile {
             return bottom;
         else
             return null;
+    }
+
+    @Override
+    public void draw(final Batch batch, final float parentAlpha) {
+        super.draw(batch, parentAlpha);
+
+        BiomeType biomeType = this.biomeType;
+        String s = biomeType != null ? biomeType.name() : "Ocean";
+        batch.draw(Utility.BASIC_TILESET_ATLAS.findRegion(s), x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+
+        if (Arrays.asList(HeightType.River).contains(heightType)) {
+            batch.draw(Utility.BASIC_TILESET_ATLAS.findRegion("river" + bitmask), x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        }
+    }
+
+    @Override
+    public Actor hit(final float x, final float y, final boolean touchable) {
+        int x0 = (int) (x / 16);
+        float x1 = (x + 1) * 16;
+        int y0 = (int) (y / 16);
+        float y1 = (y + 1) * 16;
+        return this.x == x0 && this.y == y0 ? this : null;
     }
 }

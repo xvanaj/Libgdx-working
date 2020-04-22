@@ -2,7 +2,7 @@ package core.cartezza.mapgenerator.generator.pathfind;
 
 import com.badlogic.gdx.ai.pfa.Connection;
 import com.badlogic.gdx.utils.Array;
-import core.cartezza.mapgenerator.generator.MapData;
+import core.cartezza.mapgenerator.generator.domain.MapData;
 import core.cartezza.mapgenerator.generator.MapGenerator;
 import squidpony.squidmath.Coord;
 import squidpony.squidmath.GreasedRegion;

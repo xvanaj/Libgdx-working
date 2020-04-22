@@ -8,6 +8,8 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.sudoplay.joise.module.ModuleAutoCorrect;
 import com.sudoplay.joise.module.ModuleFractal;
+import core.cartezza.mapgenerator.generator.domain.HeightType;
+import core.cartezza.mapgenerator.generator.domain.Tile;
 import core.map.BaseRoom;
 import core.map.Planet;
 import core.map.Universe;

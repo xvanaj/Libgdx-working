@@ -1,13 +1,14 @@
 package core.cartezza.mapgenerator.generator;
 
 import com.badlogic.gdx.ai.pfa.indexed.IndexedAStarPathFinder;
-import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
+import com.mygdx.game.utils.Randomizer;
 import com.sudoplay.joise.module.*;
-import core.cartezza.mapgenerator.generator.pathfind.TiledSmoothableGraphPath;
+import core.cartezza.mapgenerator.generator.domain.*;
 import core.cartezza.mapgenerator.generator.pathfind.TiledElevationDistance;
+import core.cartezza.mapgenerator.generator.pathfind.TiledSmoothableGraphPath;
 import core.cartezza.mapgenerator.generator.pathfind.TiledTerrainGraph;
 import core.cartezza.mapgenerator.generator.pathfind.TiledTerrainNode;
 import core.map.common.CommonRNG;
@@ -16,11 +17,9 @@ import squidpony.ArrayTools;
 import squidpony.Thesaurus;
 import squidpony.squidgrid.Measurement;
 import squidpony.squidgrid.MultiSpill;
-import squidpony.squidgrid.mapping.DungeonUtility;
-import squidpony.squidmath.Coord;
-import squidpony.squidmath.GreasedRegion;
-import squidpony.squidmath.OrderedMap;
+import squidpony.squidmath.*;
 
+import java.text.DecimalFormat;
 import java.util.*;
 
 import static squidpony.squidgrid.mapping.SpillWorldMap.letters;
@@ -30,8 +29,11 @@ import static squidpony.squidgrid.mapping.SpillWorldMap.letters;
  */
 public class MapGenerator {
 
-    public static int WIDTH;
-    public static int HEIGHT;
+    private static long ttg = 0; // time to generate
+    public boolean useCartezza = true;
+
+    private int WIDTH;
+    private int HEIGHT;
 
     public static double DeepWater = 0.2;
     public static double MediumWater = 0.3;
@@ -41,19 +43,18 @@ public class MapGenerator {
     public static double Grass = 0.7;
     public static double Forest = 0.8;
     public static double Rock = 0.9;
+    
+    private static double ColdestValue = 0.05;
+    private static double ColderValue = 0.18;
+    private static double ColdValue = 0.4;
+    private static double WarmValue = 0.6;
+    private static double WarmerValue = 0.8;
 
-
-    double ColdestValue = 0.05;
-    double ColderValue = 0.18;
-    double ColdValue = 0.4;
-    double WarmValue = 0.6;
-    double WarmerValue = 0.8;
-
-    double DryerValue = 0.27;
-    double DryValue = 0.4;
-    double WetValue = 0.6;
-    double WetterValue = 0.8;
-    double WettestValue = 0.9;
+    private static double DryerValue = 0.27;
+    private static double DryValue = 0.4;
+    private static double WetValue = 0.6;
+    private static double WetterValue = 0.8;
+    private static double WettestValue = 0.9;
 
     int riverCount = 0;
 
@@ -61,23 +62,24 @@ public class MapGenerator {
     ModuleAutoCorrect heightmap;
     ModuleCombiner heatmap;
     ModuleAutoCorrect moisturemap;
+    
+    // Noise generators alternative
+    Noise.Noise4D terrain = new Noise.InverseLayered4D(FastNoise.instance, 6, 2f);
+    Noise.Noise4D terrainRidged = new Noise.Ridged4D(FastNoise.instance, 6, 2f);
+    Noise.Noise4D otherRidged = new Noise.Ridged4D(FastNoise.instance, 5, 1.25f);
+    Noise.Noise4D heat = new Noise.Ridged4D(FastNoise.instance, 4, 0.05f);
+    Noise.Noise4D moisture = new Noise.Ridged4D(FastNoise.instance, 4, 0.05f);
 
-    protected List<River> riverPaths;
-    protected List<RiverGroup> riverGroups;
-
-    MapData heightData;
-    MapData heatData;
-    MapData moistureData;
-    double[][] initialHeatData;
-
-    Tile[][] tiles;
-    char[][] politicalMap;
-    char[][] waterLandMap;
+    //Noise.Noise4D terrain = new Noise.InverseLayered4D(FastNoise.instance, 5, 0.95f);
+    //Noise.Noise4D terrainRidged = new Noise.Ridged4D(FastNoise.instance, 5, 3.1f);
+    //Noise.Noise4D otherRidged = new Noise.Ridged4D(FastNoise.instance, 5, 3.1f);
+    //Noise.Noise4D heat = new Noise.Ridged4D(FastNoise.instance, 5, 2.125f);
+    //Noise.Noise4D moisture = new Noise.Ridged4D(FastNoise.instance, 5, 3.375f);
 
 
-    int terrainOctaves = 6;
-    int terrainRidgeOctaves = 6;
-    double terrainFrequency = 1.25;
+    int terrainOctaves = 9;
+    int terrainRidgeOctaves = 9;
+    double terrainFrequency = 1.45;
 
     int heatOctaves = 4;
     double heatFrequency = 3.0;
@@ -85,16 +87,29 @@ public class MapGenerator {
     int moistureOctaves = 4;
     double moistureFrequency = 3.0;
 
-    double terrainNoiseScale = 1;
+    double terrainNoiseScale = 2;
     double heatNoiseScale = 1;
     double moistureNoiseScale = 1;
 
+    public MapData heightData;
+    public MapData heatData;
+    public MapData moistureData;
+    double[][] initialHeatData;
+
+    Tile[][] tiles;
+    public char[][] politicalMap;
+    public char[][] waterLandMap;
+    protected List<River> riverPaths;
+    protected List<RiverGroup> riverGroups;
 
     List<TileGroup> waters = new ArrayList<>();
     List<TileGroup> lands = new ArrayList<> ();
     List<Coord> ocean;
     List<List<Coord>> lakes;
     GreasedRegion coastline;
+
+    public boolean generateRivers = true;
+    boolean generateFactions = true;
 
     protected final static BiomeType[][] BIOME_TABLE = new BiomeType[][] {
             //COLDEST        //COLDER          //COLD                  //HOT                          //HOTTER                       //HOTTEST
@@ -121,85 +136,26 @@ public class MapGenerator {
     GreasedRegion riverBlockages;
     GreasedRegion rivers;
 
+    private Texture waterMapTexture;
+    private Texture heatMapTexture;
+    private Texture moistureMapTexture;
+    private Texture politicalMapTexture;
+    private Texture biomeMapTexture;
+
     public MapGenerator(int width, int height) {
         WIDTH = width;
         HEIGHT = height;
     }
 
-    public MapGenerator(int width, int height, double deepWater, double mediumWater, double shallowWater, double coastalWater,
-                        double sand, double grass, double forest, double rock) {
-        WIDTH = width;
-        HEIGHT = height;
-        this.DeepWater = deepWater;
-        this.MediumWater = mediumWater;
-        this.ShallowWater = shallowWater;
-        this.CoastalWater = coastalWater;
-        this.Sand = sand;
-        this.Grass = grass;
-        this.Forest = forest;
-        this.Rock = rock;
-    }
+    public MapGenerator setNoises4D(Noise.Noise4D terrain, Noise.Noise4D terrainRidged, Noise.Noise4D otherRidged,
+                                    Noise.Noise4D heat, Noise.Noise4D moisture) {
+        this.terrain = terrain;
+        this.terrainRidged = terrainRidged;
+        this.otherRidged = otherRidged;
+        this.heat = heat;
+        this.moisture = moisture;
 
-    public Pixmap generateGameMap() {
-        initialize();
-
-        getData();
-        loadTiles();
-        updateNeighbors();
-        // fillDepressions();
-
-        refreshTiles(true);
-
-        createWaterLandMaps();
-
-        generateRivers();
-        // buildRiverGroups();
-        // digRiverGroups();
-
-        Coord c;
-        for(River r : riverPaths) {
-            // cleanUpRiverFlow(r);
-            // erodeRiverBed(r);
-            Tile riverOrigin = tiles[r.path.get(0).x][r.path.get(0).y];
-            Tile riverDestination = tiles[r.path.get(r.path.size()-1).x][r.path.get(r.path.size()-1).y];
-            double oldRange = (riverOrigin.heightValue - riverDestination.heightValue);
-            for(int i = 0; i < r.path.size(); i++) {
-                c = r.path.get(i);
-                tiles[c.x][c.y].originalHeightValue = tiles[c.x][c.y].heightValue;
-                tiles[c.x][c.y].heightValue = 0;
-                // tiles[c.x][c.y].heightValue = MathUtils.lerp((float)riverOrigin.heightValue, (float)riverDestination.heightValue, (float) ((tiles[c.x][c.y].heightValue - riverDestination.heightValue) / oldRange));
-                rivers.add(c);
-            }
-
-        }
-
-        for(Coord r : rivers) {
-            if(tiles[r.x][r.y].originalHeightValue == 0) {
-                tiles[r.x][r.y].originalHeightValue = tiles[r.x][r.y].heightValue;
-                tiles[r.x][r.y].heightValue = .5;
-            }
-            tiles[r.x][r.y].heightType = HeightType.River;
-        }
-
-
-        adjustMoistureMap();
-
-        // refreshTiles(false);
-
-        generateBiomeMap ();
-
-        int numFactions = CommonRNG.getRng().between(6, 15);
-
-        generateFactionMap(numFactions, CommonRNG.getRng().between(.5, 1));
-
-        generateCities();
-
-        // MapTextureGenerator.generateHeightMapTexture(WIDTH, HEIGHT, tiles, true);
-        // MapTextureGenerator.generateWaterMapTexture(WIDTH, HEIGHT, waterLandMap);
-        // MapTextureGenerator.generateHeatMapTexture(WIDTH, HEIGHT, tiles);
-        // MapTextureGenerator.generateMoistureMapTexture(WIDTH, HEIGHT, tiles);
-        // MapTextureGenerator.generatePoliticalMapTexture(WIDTH, HEIGHT, atlas, politicalMap, tiles, ColdestValue, ColderValue, ColdValue);
-        return MapTextureGenerator.generateGameMap(WIDTH, HEIGHT, tiles, ColdestValue, ColderValue, ColdValue, WarmValue);
+        return this;
     }
 
     private void generateCities() {
@@ -211,83 +167,153 @@ public class MapGenerator {
 
             factionTerritory.refill(politicalMap, factionSymbol);
 
-            DungeonUtility.debugPrint(factionTerritory.toChars());
+            //DungeonUtility.debugPrint(factionTerritory.toChars());
         }
     }
 
     public Texture generate() {
+        ttg = System.currentTimeMillis();
         initialize();
+        System.out.println("initialize took " + (System.currentTimeMillis() - ttg) + " millis");
 
+        ttg = System.currentTimeMillis();
         getData();
-        loadTiles();
+        System.out.println("getData took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
+        tiles = loadTiles(heightData.data, heatData.data,
+                heightData.min, heightData.max, heatData.min, heatData.max, 
+                heatData.data.length, heatData.data[0].length);
+        System.out.println("loadTiles took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
         updateNeighbors();
-        // fillDepressions();
+        System.out.println("updateNeighbors took " + (System.currentTimeMillis() - ttg) + " millis");
 
+        ttg = System.currentTimeMillis();
+        fillDepressions();
+        System.out.println("fillDepressions took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
         refreshTiles(true);
+        System.out.println("refreshTiles took " + (System.currentTimeMillis() - ttg) + " millis");
 
+        ttg = System.currentTimeMillis();
         createWaterLandMaps();
+        System.out.println("createWaterLandMaps took " + (System.currentTimeMillis() - ttg) + " millis");
 
-        generateRivers();
-        // buildRiverGroups();
-        // digRiverGroups();
+        if (generateRivers) {
+            ttg = System.currentTimeMillis();
+            generateRivers();
+            // buildRiverGroups();
+            // digRiverGroups();
 
-        Coord c;
-        for(River r : riverPaths) {
-            // cleanUpRiverFlow(r);
-            // erodeRiverBed(r);
-            Tile riverOrigin = tiles[r.path.get(0).x][r.path.get(0).y];
-            Tile riverDestination = tiles[r.path.get(r.path.size()-1).x][r.path.get(r.path.size()-1).y];
-            double oldRange = (riverOrigin.heightValue - riverDestination.heightValue);
-            for(int i = 0; i < r.path.size(); i++) {
-                c = r.path.get(i);
-                tiles[c.x][c.y].originalHeightValue = tiles[c.x][c.y].heightValue;
-                tiles[c.x][c.y].heightValue = 0;
-                // tiles[c.x][c.y].heightValue = MathUtils.lerp((float)riverOrigin.heightValue, (float)riverDestination.heightValue, (float) ((tiles[c.x][c.y].heightValue - riverDestination.heightValue) / oldRange));
-                rivers.add(c);
+            Coord c;
+            for(River r : riverPaths) {
+                // cleanUpRiverFlow(r);
+                // erodeRiverBed(r);
+                Tile riverOrigin = tiles[r.path.get(0).x][r.path.get(0).y];
+                Tile riverDestination = tiles[r.path.get(r.path.size()-1).x][r.path.get(r.path.size()-1).y];
+                double oldRange = (riverOrigin.heightValue - riverDestination.heightValue);
+                for(int i = 0; i < r.path.size(); i++) {
+                    c = r.path.get(i);
+                    tiles[c.x][c.y].originalHeightValue = tiles[c.x][c.y].heightValue;
+                    tiles[c.x][c.y].heightValue = 0;
+                    // tiles[c.x][c.y].heightValue = MathUtils.lerp((float)riverOrigin.heightValue, (float)riverDestination.heightValue, (float) ((tiles[c.x][c.y].heightValue - riverDestination.heightValue) / oldRange));
+                    rivers.add(c);
+                }
+
             }
 
-        }
+            rivers.expand(2).retract8way();
 
-        rivers.expand(2).retract8way();
-
-        for(Coord r : rivers) {
-            if(tiles[r.x][r.y].originalHeightValue == 0) {
-                tiles[r.x][r.y].originalHeightValue = tiles[r.x][r.y].heightValue;
-                tiles[r.x][r.y].heightValue = .5;
+            for(Coord r : rivers) {
+                if(tiles[r.x][r.y].originalHeightValue == 0) {
+                    tiles[r.x][r.y].originalHeightValue = tiles[r.x][r.y].heightValue;
+                    tiles[r.x][r.y].heightValue = .5;
+                }
+                tiles[r.x][r.y].heightType = HeightType.River;
             }
-            tiles[r.x][r.y].heightType = HeightType.River;
+
+            System.out.println("generateRivers took " + (System.currentTimeMillis() - ttg) + " millis");
         }
 
-
+        ttg = System.currentTimeMillis();
         adjustMoistureMap();
+        System.out.println("adjustMoistureMap took " + (System.currentTimeMillis() - ttg) + " millis");
 
         // refreshTiles(false);
 
-        Date date = new Date();
-        generateBiomeMap ();
-        System.out.println("generateBiomeMap took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
-        generateFactionMap(15, 1);
-        System.out.println("generateFactionMap took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
+        ttg = System.currentTimeMillis();
+        generateBiomeMap(WIDTH, HEIGHT, tiles);
+        System.out.println("generateBiomeMap took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        //must be after generate biome map and update neighbours
+        ttg = System.currentTimeMillis();
+        updateBitmask();
+        updateBiomeBitmask();
+        System.out.println("updateBiomeBitmask took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
+        int numFactions = CommonRNG.getRng().between(6, 15);
+        double between = CommonRNG.getRng().between(.5, 1);
+        generateFactionMap(numFactions, between);
+        generateCities();
+        System.out.println("generateFactionMap took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
         MapTextureGenerator.generateHeightMapTexture(WIDTH, HEIGHT, tiles, true);
-        System.out.println("generateHeightMapTexture took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
-        MapTextureGenerator.generateWaterMapTexture(WIDTH, HEIGHT, waterLandMap);
-        System.out.println("generateWaterMapTexture took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
-        MapTextureGenerator.generateHeatMapTexture(WIDTH, HEIGHT, tiles);
-        System.out.println("generateHeatMapTexture took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
-        MapTextureGenerator.generateMoistureMapTexture(WIDTH, HEIGHT, tiles);
-        System.out.println("generateMoistureMapTexture took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
-        MapTextureGenerator.generatePoliticalMapTexture(WIDTH, HEIGHT, atlas, politicalMap, tiles, ColdestValue, ColderValue, ColdValue);
-        System.out.println("generatePoliticalMapTexture took " + (new Date().getTime() - date.getTime()) + " millis");
-        date = new Date();
-        Texture texture = MapTextureGenerator.generateBiomeMapTexture(WIDTH, HEIGHT, tiles, ColdestValue, ColderValue, ColdValue, WarmValue);
-        System.out.println("MapTextureGenerator took " + (new Date().getTime() - date.getTime()) + " millis");
-        return texture;
+        System.out.println("generateHeightMapTexture took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
+        waterMapTexture = MapTextureGenerator.generateWaterMapTexture(WIDTH, HEIGHT, waterLandMap);
+        System.out.println("generateWaterMapTexture took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
+        heatMapTexture = MapTextureGenerator.generateHeatMapTexture(WIDTH, HEIGHT, tiles);
+        System.out.println("generateHeatMapTexture took " + (System.currentTimeMillis() - ttg) + " millis");
+        ttg = System.currentTimeMillis();
+
+        moistureMapTexture = MapTextureGenerator.generateMoistureMapTexture(WIDTH, HEIGHT, tiles);
+        System.out.println("generateMoistureMapTexture took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
+        politicalMapTexture = MapTextureGenerator.generatePoliticalMapTexture(WIDTH, HEIGHT, atlas, politicalMap, tiles, ColdestValue, ColderValue, ColdValue);
+        System.out.println("generatePoliticalMapTexture took " + (System.currentTimeMillis() - ttg) + " millis");
+
+        ttg = System.currentTimeMillis();
+        biomeMapTexture = MapTextureGenerator.generateBiomeMapTexture(WIDTH, HEIGHT, tiles, ColdestValue, ColderValue, ColdValue, WarmValue);
+        System.out.println("MapTextureGenerator took " + (System.currentTimeMillis() - ttg) + " millis");
+        return biomeMapTexture;
+    }
+
+    public static void generateWithParams(final int width, final int height, final MapGenerator generator, final int to, final float tf, final int tro, final float trf, final int ho, final float hf, final int mo, final float mf, final int oro, final float orf) {
+        Date date = new Date();
+
+        //terrain = new Noise.Ridged4D(FastNoise.instance, to, tf);
+        //terrain = new Noise.Slick4D(FastNoise.instance, JitterNoise.instance);
+
+        final Noise.Noise4D terrain = new Noise.Ridged4D(new FastNoise(123123, tf, 5, 6), 1, 2);
+        final Noise.Noise4D terrainRidged = new Noise.Ridged4D(FastNoise.instance, tro, trf);
+        final Noise.Noise4D otherRidged = new Noise.Ridged4D(FastNoise.instance, oro, orf);
+        final Noise.Noise4D heat = new Noise.Ridged4D(FastNoise.instance, ho, hf);
+        final Noise.Noise4D moisture = new Noise.Ridged4D(FastNoise.instance, mo, mf);
+
+        generator.setNoises4D(terrain, terrainRidged, otherRidged, heat, moisture);
+        generator.generate();
+        MapTextureGenerator mapTextureGenerator = new MapTextureGenerator();
+        DecimalFormat df = new DecimalFormat();
+        df.setMaximumFractionDigits(2);
+        df.setMinimumFractionDigits(2);
+
+        String fileName = String.format("_mapgenerator/%s=%s=%s=%s=%s=%s=%s.png" , terrain.getClass().getSimpleName(),
+                df.format(tf), df.format(trf), df.format(hf), df.format(mf), df.format(orf), to + "" + tro + "" + ho + "" + mo + "" + oro);
+        mapTextureGenerator.generateBiomeMapTexture(fileName,
+                width, height, generator.getTiles());
+        mapTextureGenerator.generateHeightMapTexture(String.format("_mapgenerator/heightmap%s=%s=%s=%s=%s=%s=%s.png" , terrain.getClass().getSimpleName(),
+                df.format(tf), df.format(trf), df.format(hf), df.format(mf), df.format(orf), to + "" + tro + "" + ho + "" + mo + "" + oro),
+                width, height, generator.getTiles(), true);
+        System.out.println("map " + width + "x" + height + " created in " + (new Date().getTime() - date.getTime()) + " millis");
     }
 
     private void buildRiverGroups() {
@@ -466,6 +492,871 @@ public class MapGenerator {
     private boolean cyclicFlow(Tile currentTile, Tile other) {
         Tile othersLowestNeighbor = other.getNeighbor(other.getLowestNeighbor(this));
         return othersLowestNeighbor.x == currentTile.x && othersLowestNeighbor.y == currentTile.y;
+    }
+
+    public static void refreshTiles(double[][] heightData, double minHeight, double maxHeight,
+                                    double[][] heatData, double minHeat, double maxHeat,
+                                    double[][] moistureData, double minMoisture, double maxMoisture,
+                                    Tile[][] tiles, boolean setMoistureBasedOnHeight) {
+        int WIDTH = heightData.length;
+        int HEIGHT = heightData[0].length;
+
+        for (int x = 0; x < WIDTH; x++)
+        {
+            for (int y = 0; y < HEIGHT; y++)
+            {
+                Tile t = tiles[x][y];
+
+                double value = heightData[x][y];
+                value = (value - minHeight) / (maxHeight - minHeight);
+
+                t.heightValue = value;
+
+                //HeightMap Analyze
+                if (t.heightType == HeightType.River) {
+                    t.collidable = false;
+                }
+                else if(t.heightType == HeightType.DebugDestination || t.heightType == HeightType.DebugSource || t.heightType == HeightType.DebugCoastline) {
+                    t.collidable = false;
+                }
+                else if (value < DeepWater)  {
+                    t.heightType = HeightType.DeepWater;
+                    t.collidable = false;
+                }
+                else if (value < ShallowWater)  {
+                    t.heightType = HeightType.ShallowWater;
+                    t.collidable = false;
+                }
+                else if (value < MediumWater)  {
+                    t.heightType = HeightType.MediumWater;
+                    t.collidable = false;
+                }
+                else if (value < CoastalWater)  {
+                    t.heightType = HeightType.CoastalWater;
+                    t.collidable = false;
+                }
+                else if (value < Sand) {
+                    t.heightType = HeightType.Sand;
+                    t.collidable = true;
+                }
+                else if (value < Grass) {
+                    t.heightType = HeightType.Grass;
+                    t.collidable = true;
+                }
+                else if (value < Forest) {
+                    t.heightType = HeightType.Forest;
+                    t.collidable = true;
+                }
+                else if (value < Rock) {
+                    t.heightType = HeightType.Rock;
+                    t.collidable = true;
+                }
+                else  {
+                    t.heightType = HeightType.Snow;
+                    t.collidable = true;
+                }
+
+
+
+                //adjust moisture based on height
+                if(setMoistureBasedOnHeight) {
+                    if (t.heightType == HeightType.DeepWater) {
+                        moistureData[t.x][t.y] += 8f * t.heightValue;
+                    } else if (t.heightType == HeightType.MediumWater) {
+                        moistureData[t.x][t.y] += 5f * t.heightValue;
+                    } else if (t.heightType == HeightType.ShallowWater) {
+                        moistureData[t.x][t.y] += 3f * t.heightValue;
+                    } else if (t.heightType == HeightType.CoastalWater) {
+                        moistureData[t.x][t.y] += 2f * t.heightValue;
+                    } else if (t.heightType == HeightType.Shore) {
+                        moistureData[t.x][t.y] += 1f * t.heightValue;
+                    } else if (t.heightType == HeightType.Sand) {
+                        moistureData[t.x][t.y] += 0.2f * t.heightValue;
+                    }
+                }
+
+                //Moisture Map Analyze
+                double moistureValue = moistureData[x][y];
+                moistureValue = (moistureValue - minMoisture) / (maxMoisture - minMoisture);
+                t.moistureValue = moistureValue;
+
+                //set moisture type
+                if (moistureValue < DryerValue) t.moistureType = MoistureType.Dryest;
+                else if (moistureValue < DryValue) t.moistureType = MoistureType.Dryer;
+                else if (moistureValue < WetValue) t.moistureType = MoistureType.Dry;
+                else if (moistureValue < WetterValue) t.moistureType = MoistureType.Wet;
+                else if (moistureValue < WettestValue) t.moistureType = MoistureType.Wetter;
+                else t.moistureType = MoistureType.Wettest;
+
+                // Adjust Heat Map based on Height - Higher == colder
+                if (t.heightType == HeightType.Forest) {
+                    heatData[t.x][t.y] -= 0.1f * t.heightValue;
+                }
+                else if (t.heightType == HeightType.Rock) {
+                    heatData[t.x][t.y] -= 0.25f * t.heightValue;
+                }
+                else if (t.heightType == HeightType.Snow) {
+                    heatData[t.x][t.y] -= 0.4f * t.heightValue;
+                }
+                else {
+                    heatData[t.x][t.y] += 0.01f * t.heightValue;
+                }
+
+                // Set heat value
+                double heatValue = heatData[x][y];
+                heatValue = (heatValue - minHeat) / (maxHeat - minHeat);
+                t.heatValue = heatValue;
+
+                // set heat type
+                if (heatValue < ColdestValue) t.heatType = HeatType.Coldest;
+                else if (heatValue < ColderValue) t.heatType = HeatType.Colder;
+                else if (heatValue < ColdValue) t.heatType = HeatType.Cold;
+                else if (heatValue < WarmValue) t.heatType = HeatType.Warm;
+                else if (heatValue < WarmerValue) t.heatType = HeatType.Warmer;
+                else t.heatType = HeatType.Warmest;
+
+                tiles[x][y] = t;
+            }
+        }
+    }
+    
+    private void refreshTiles(boolean setMoistureBasedOnHeight) {
+        resetHeatValues();
+        for (int x = 0; x < WIDTH; x++)
+        {
+            for (int y = 0; y < HEIGHT; y++)
+            {
+                Tile t = tiles[x][y];
+
+                double value = heightData.data[x][y];
+                value = (value - heightData.min) / (heightData.max - heightData.min);
+
+                t.heightValue = value;
+
+                //HeightMap Analyze
+                if (t.heightType == HeightType.River) {
+                    t.collidable = false;
+                }
+                else if(t.heightType == HeightType.DebugDestination || t.heightType == HeightType.DebugSource || t.heightType == HeightType.DebugCoastline) {
+                    t.collidable = false;
+                }
+                else if (value < DeepWater)  {
+                    t.heightType = HeightType.DeepWater;
+                    t.collidable = false;
+                }
+                else if (value < ShallowWater)  {
+                    t.heightType = HeightType.ShallowWater;
+                    t.collidable = false;
+                }
+                else if (value < MediumWater)  {
+                    t.heightType = HeightType.MediumWater;
+                    t.collidable = false;
+                }
+                else if (value < CoastalWater)  {
+                    t.heightType = HeightType.CoastalWater;
+                    t.collidable = false;
+                }
+                else if (value < Sand) {
+                    t.heightType = HeightType.Sand;
+                    t.collidable = true;
+                }
+                else if (value < Grass) {
+                    t.heightType = HeightType.Grass;
+                    t.collidable = true;
+                }
+                else if (value < Forest) {
+                    t.heightType = HeightType.Forest;
+                    t.collidable = true;
+                }
+                else if (value < Rock) {
+                    t.heightType = HeightType.Rock;
+                    t.collidable = true;
+                }
+                else  {
+                    t.heightType = HeightType.Snow;
+                    t.collidable = true;
+                }
+
+
+                //adjust moisture based on height
+                if(setMoistureBasedOnHeight) {
+                    if (t.heightType == HeightType.DeepWater) {
+                        moistureData.data[t.x][t.y] += 8f * t.heightValue;
+                    } else if (t.heightType == HeightType.MediumWater) {
+                        moistureData.data[t.x][t.y] += 5f * t.heightValue;
+                    } else if (t.heightType == HeightType.ShallowWater) {
+                        moistureData.data[t.x][t.y] += 3f * t.heightValue;
+                    } else if (t.heightType == HeightType.CoastalWater) {
+                        moistureData.data[t.x][t.y] += 2f * t.heightValue;
+                    } else if (t.heightType == HeightType.Shore) {
+                        moistureData.data[t.x][t.y] += 1f * t.heightValue;
+                    } else if (t.heightType == HeightType.Sand) {
+                        moistureData.data[t.x][t.y] += 0.2f * t.heightValue;
+                    }
+                }
+
+                //Moisture Map Analyze
+                double moistureValue = moistureData.data[x][y];
+                moistureValue = (moistureValue - moistureData.min) / (moistureData.max - moistureData.min);
+                t.moistureValue = moistureValue;
+
+                //set moisture type
+                if (moistureValue < DryerValue) t.moistureType = MoistureType.Dryest;
+                else if (moistureValue < DryValue) t.moistureType = MoistureType.Dryer;
+                else if (moistureValue < WetValue) t.moistureType = MoistureType.Dry;
+                else if (moistureValue < WetterValue) t.moistureType = MoistureType.Wet;
+                else if (moistureValue < WettestValue) t.moistureType = MoistureType.Wetter;
+                else t.moistureType = MoistureType.Wettest;
+
+                // Adjust Heat Map based on Height - Higher == colder
+                if (t.heightType == HeightType.Forest) {
+                    heatData.data[t.x][t.y] -= 0.1f * t.heightValue;
+                }
+                else if (t.heightType == HeightType.Rock) {
+                    heatData.data[t.x][t.y] -= 0.25f * t.heightValue;
+                }
+                else if (t.heightType == HeightType.Snow) {
+                    heatData.data[t.x][t.y] -= 0.4f * t.heightValue;
+                }
+                else {
+                    heatData.data[t.x][t.y] += 0.01f * t.heightValue;
+                }
+
+                // Set heat value
+                double heatValue = heatData.data[x][y];
+                heatValue = (heatValue - heatData.min) / (heatData.max - heatData.min);
+                t.heatValue = heatValue;
+
+                // set heat type
+                if (heatValue < ColdestValue) t.heatType = HeatType.Coldest;
+                else if (heatValue < ColderValue) t.heatType = HeatType.Colder;
+                else if (heatValue < ColdValue) t.heatType = HeatType.Cold;
+                else if (heatValue < WarmValue) t.heatType = HeatType.Warm;
+                else if (heatValue < WarmerValue) t.heatType = HeatType.Warmer;
+                else t.heatType = HeatType.Warmest;
+
+                tiles[x][y] = t;
+            }
+        }
+    }
+
+    private void resetHeatValues() {
+        heatData.data = initialHeatData;
+    }
+
+    private void createWaterLandMaps() {
+        waterLandMap = ArrayTools.fill('#', WIDTH, HEIGHT);
+        for(int x = 0; x < WIDTH; x++) {
+            for(int y = 0; y < HEIGHT; y++) {
+                if(tiles[x][y].heightType.getNumVal() > 5) {
+                    waterLandMap[x][y] = '.';
+                }
+            }
+        }
+
+        List<List<Coord>> waterBodies = new ArrayList<>();
+        char[][] tempWaterMap = ArrayTools.copy(waterLandMap);
+
+        GreasedRegion waterRegion = new GreasedRegion(waterLandMap, '#');
+        char[][] water = waterRegion.toChars();
+
+
+        Coord spreadSource;
+        List<Coord> spill;
+
+        Splash spreader = new Splash();
+        //while(waterRegion.size() > 0) {
+            water = waterRegion.toChars();
+            spreadSource = waterRegion.singleRandom(CommonRNG.getRng());
+            spill = spreader.spill(CommonRNG.getRng(), water, spreadSource, WIDTH*HEIGHT, 0);
+            waterBodies.add(spill);
+            for(Coord c: spill) {
+                tempWaterMap[c.x][c.y] = '#';
+            }
+            tempWaterMap[spreadSource.x][spreadSource.y] = '#';
+            //DungeonUtility.debugPrint(tempWaterMap);
+            waterRegion.removeAll(spill);
+            //System.out.println();
+        //}
+        /*System.out.println();*/
+
+        waterBodies.sort(new Comparator<List<Coord>>() {
+            @Override
+            public int compare(List<Coord> o1, List<Coord> o2) {
+                return Integer.valueOf(o1.size()).compareTo(o2.size());
+            }
+        });
+
+        ocean = waterBodies.get(waterBodies.size()-1);
+        waterBodies.remove(ocean);
+        lakes = waterBodies;
+        coastline = new GreasedRegion(waterLandMap, '.').fringe();
+
+        /*Tile t;
+        for(Coord c : ocean) {
+            t = tiles[c.x][c.y];
+            t.heightValue = 0;
+            t.heightType = HeightType.River;
+        }*/
+    }
+
+    private boolean contains(int tx, int ty) {
+        if(tx >= 0 && tx < WIDTH && ty >= 0 && ty < HEIGHT) return true;
+        return false;
+    }
+
+    private void generateFactionMap(final int factionCount, double controlledFraction) {
+        MultiSpill spreader = new MultiSpill(new short[WIDTH][HEIGHT], Measurement.MANHATTAN, CommonRNG.getRng());
+        OrderedMap<Coord, Double> entries = new OrderedMap<>();
+
+        short[][] regionMap = new short[WIDTH][HEIGHT];
+
+        for(int x = 0; x < WIDTH; x++) {
+            for(int y = 0; y < HEIGHT; y++) {
+                if(tiles[x][y].heightValue >= Sand)
+                {
+                    regionMap[x][y] = 0;
+                }
+                else
+                {
+                    regionMap[x][y] = -1;
+                }
+            }
+        }
+
+        GreasedRegion factionMap = new GreasedRegion(waterLandMap, '.');
+        Coord[] centers = factionMap.randomSeparated(0.1, CommonRNG.getRng(), factionCount);
+        int controlled = (int) (factionMap.size() * Math.max(0.0, Math.min(1.0, controlledFraction)));
+
+        Set<Coord> impassable = new squidpony.squidmath.OrderedSet<>(factionMap.not().asCoords());
+
+        spreader.initialize(regionMap);
+        entries.put(Coord.get(-1, -1), 0.0);
+        for (int i = 0; i < factionCount; i++) {
+            entries.put(centers[i], CommonRNG.getRng().nextDouble());
+        }
+        spreader.start(entries, controlled, impassable);
+        regionMap = spreader.spillMap;
+
+
+
+        politicalMap = new char[WIDTH][HEIGHT];
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+                politicalMap[x][y] = (regionMap[x][y] == -1) ? '~' : (regionMap[x][y] == 0) ? '%' : letters[(regionMap[x][y] - 1) & 255];
+            }
+        }
+        atlas.clear();
+        atlas.put('~', "Water");
+        atlas.put('%', "Wilderness");
+        if(factionCount > 0) {
+            Thesaurus th = new Thesaurus(CommonRNG.getRng().nextLong());
+            th.addKnownCategories();
+            for (int i = 0; i < factionCount && i < 256; i++) {
+                atlas.put(letters[i], th.makeNationName());
+            }
+        }
+
+        //DungeonUtility.debugPrint(politicalMap);
+    }
+
+    private void initialize() {
+        Coord.expandPoolTo(WIDTH+3, HEIGHT+3);
+
+        // Initialize the heightmap generator
+        ModuleFractal heightFractal = new ModuleFractal (ModuleFractal.FractalType.FBM,
+                ModuleBasisFunction.BasisType.GRADIENT,
+                ModuleBasisFunction.InterpolationType.QUINTIC);
+        heightFractal.setNumOctaves(terrainOctaves);
+        heightFractal.setFrequency(terrainFrequency);
+        heightFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
+
+        ModuleFractal ridgedHeightFractal = new ModuleFractal (ModuleFractal.FractalType.RIDGEMULTI,
+                ModuleBasisFunction.BasisType.SIMPLEX,
+                ModuleBasisFunction.InterpolationType.QUINTIC);
+        ridgedHeightFractal.setNumOctaves(terrainRidgeOctaves);
+        ridgedHeightFractal.setFrequency(terrainFrequency);
+        ridgedHeightFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
+
+        ModuleTranslateDomain heightTranslateDomain = new ModuleTranslateDomain();
+        heightTranslateDomain.setSource(heightFractal);
+        heightTranslateDomain.setAxisXSource(ridgedHeightFractal);
+
+        heightmap = new ModuleAutoCorrect();
+        heightmap.setSamples(1000);
+        heightmap.setSource(heightTranslateDomain);
+        heightmap.calculate();
+
+
+        // Initialize the heat map generator
+        ModuleGradient heatmapGradient = new ModuleGradient();
+        heatmapGradient.setGradient(0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        ModuleFractal heatFractal = new ModuleFractal (ModuleFractal.FractalType.MULTI,
+                ModuleBasisFunction.BasisType.SIMPLEX,
+                ModuleBasisFunction.InterpolationType.QUINTIC);
+        heatFractal.setNumOctaves(heatOctaves);
+        heatFractal.setFrequency(heatFrequency);
+        heatFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
+
+        heatmap = new ModuleCombiner(ModuleCombiner.CombinerType.MULT);
+        heatmap.setSource(0, heatmapGradient);
+        heatmap.setSource(1, heatFractal);
+
+
+        // Initialize the moisture map generator
+        ModuleFractal moistureFractal = new ModuleFractal (ModuleFractal.FractalType.MULTI,
+                ModuleBasisFunction.BasisType.SIMPLEX,
+                ModuleBasisFunction.InterpolationType.QUINTIC);
+        moistureFractal.setNumOctaves(moistureOctaves);
+        moistureFractal.setFrequency(moistureFrequency);
+        moistureFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
+
+        moisturemap = new ModuleAutoCorrect();
+        moisturemap.setSamples(1000);
+        moisturemap.setSource(moistureFractal);
+        moisturemap.calculate();
+    }
+
+    // Extract data from a noise module
+    private void getData() {
+        heightData = new MapData(WIDTH, HEIGHT);
+        heatData = new MapData(WIDTH, HEIGHT);
+        moistureData = new MapData(WIDTH, HEIGHT);
+
+        // loop through each x,y point - get height value
+        ttg = System.currentTimeMillis();
+        int count = 0;
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+
+                // Noise range
+                float x1 = 0, x2 = 2;
+                float y1 = 0, y2 = 2;
+                float dx = x2 - x1;
+                float dy = y2 - y1;
+
+                // Sample noise at smaller intervals
+                float s = x / (float) WIDTH;
+                float t = y / (float) HEIGHT;
+
+                // Calculate our 4D coordinates
+                float heightValue, heatValue, moistureValue;
+                float nx = x1 + MathUtils.cos(s * 2 * MathUtils.PI) * dx / (2 * MathUtils.PI);
+                float ny = y1 + MathUtils.cos(t * 2 * MathUtils.PI) * dy / (2 * MathUtils.PI);
+                float nz = x1 + MathUtils.sin(s * 2 * MathUtils.PI) * dx / (2 * MathUtils.PI);
+                float nw = y1 + MathUtils.sin(t * 2 * MathUtils.PI) * dy / (2 * MathUtils.PI);
+
+                if (useCartezza) {
+                    heightValue = (float) heightmap.get(nx * terrainNoiseScale, ny * terrainNoiseScale, nz * terrainNoiseScale, nw * terrainNoiseScale);
+                    heatValue = (float) heatmap.get(nx * heatNoiseScale, ny * heatNoiseScale, nz * heatNoiseScale, nw * heatNoiseScale);
+                    moistureValue = (float) moisturemap.get(nx * moistureNoiseScale, ny * moistureNoiseScale, nz * moistureNoiseScale, nw * moistureNoiseScale);
+                } else {
+                    //seed must be higher 1000?
+                    int seedA = Randomizer.range(1000, 1500);
+                    int seedB = Randomizer.range(seedA, 1800);
+                    int seedC = Randomizer.range(seedB, 2000);
+                    seedA = 111111;
+                    seedB = 22222;
+                    seedC = 33333;
+
+                    heightValue = (float) terrain.getNoiseWithSeed(nx +
+                                    terrainRidged.getNoiseWithSeed(nx, ny, nz, nw, seedB - seedA) /** 0.25*/,
+                            ny, nz, nw, seedA);
+                    heatValue = (float) heat.getNoiseWithSeed(nx, ny, nz
+                                    + otherRidged.getNoiseWithSeed(nx, ny, nz, nw, seedB + seedC)
+                            , nw, seedB);
+                    moistureValue = (float) moisture.getNoiseWithSeed(nx, ny, nz, nw
+                                    + otherRidged.getNoiseWithSeed(nx, ny, nz, nw, seedC + seedA)
+                            , seedC);
+                }
+
+                // keep track of the max and min values found
+                if (heightValue > heightData.max) heightData.max = heightValue;
+                if (heightValue < heightData.min) heightData.min = heightValue;
+
+                if (heatValue > heatData.max) heatData.max = heatValue;
+                if (heatValue < heatData.min) heatData.min = heatValue;
+
+                if (moistureValue > moistureData.max) moistureData.max = moistureValue;
+                if (moistureValue < moistureData.min) moistureData.min = moistureValue;
+
+                heightData.data[x][y] = heightValue;
+                heatData.data[x][y] = heatValue;
+                moistureData.data[x][y] = moistureValue;
+
+                initialHeatData = heatData.data;
+                count++;
+                if (count % 1000000 == 0) {
+                    System.out.println(count + " in " + (System.currentTimeMillis() - ttg) + " millis");
+                    ttg = System.currentTimeMillis();
+                }
+            }
+        }
+    }
+
+    
+    // Build a Tile array from our data
+    public static Tile[][] loadTiles(final double[][] heightData, final double[][] heatData
+            , final double minHeight, final double maxHeight, final double minHeat, final double maxHeat
+            , final int width, final int height) {
+
+        Tile[][] tiles = new Tile[width][height];
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Tile t = new Tile();
+                t.x = x;
+                t.y = y;
+                double value = heightData[x][y];
+                value = (value - minHeight) / (maxHeight - minHeight);
+
+                t.heightValue = value;
+
+                //HeightMap Analyze
+                if (value < DeepWater)  {
+                    t.heightType = HeightType.DeepWater;
+                    t.collidable = false;
+                }
+                else if (value < ShallowWater)  {
+                    t.heightType = HeightType.ShallowWater;
+                    t.collidable = false;
+                }
+                else if (value < MediumWater)  {
+                    t.heightType = HeightType.MediumWater;
+                    t.collidable = false;
+                }
+                else if (value < CoastalWater)  {
+                    t.heightType = HeightType.CoastalWater;
+                    t.collidable = false;
+                }
+                else if (value < Sand) {
+                    t.heightType = HeightType.Sand;
+                    t.collidable = true;
+                }
+                else if (value < Grass) {
+                    t.heightType = HeightType.Grass;
+                    t.collidable = true;
+                }
+                else if (value < Forest) {
+                    t.heightType = HeightType.Forest;
+                    t.collidable = true;
+                }
+                else if (value < Rock) {
+                    t.heightType = HeightType.Rock;
+                    t.collidable = true;
+                }
+                else  {
+                    t.heightType = HeightType.Snow;
+                    t.collidable = true;
+                }
+
+                // Adjust Heat Map based on Height - Higher == colder
+                if (t.heightType == HeightType.Forest) {
+                    heatData[t.x][t.y] -= 0.1f * t.heightValue;
+                }
+                else if (t.heightType == HeightType.Rock) {
+                    heatData[t.x][t.y] -= 0.25f * t.heightValue;
+                }
+                else if (t.heightType == HeightType.Snow) {
+                    heatData[t.x][t.y] -= 0.4f * t.heightValue;
+                }
+                else {
+                    heatData[t.x][t.y] += 0.01f * t.heightValue;
+                }
+
+                // Set heat value
+                double heatValue = heatData[x][y];
+                heatValue = (heatValue - minHeat) / (maxHeat - minHeat);
+                t.heatValue = heatValue;
+
+                // set heat type
+                if (heatValue < ColdestValue) t.heatType = HeatType.Coldest;
+                else if (heatValue < ColderValue) t.heatType = HeatType.Colder;
+                else if (heatValue < ColdValue) t.heatType = HeatType.Cold;
+                else if (heatValue < WarmValue) t.heatType = HeatType.Warm;
+                else if (heatValue < WarmerValue) t.heatType = HeatType.Warmer;
+                else t.heatType = HeatType.Warmest;
+
+                tiles[x][y] = t;
+            }
+        }
+        
+        return tiles;
+    }
+
+    private void floodFill(Tile tile, TileGroup tiles, Stack<Tile> stack) {
+        // Validate
+        if (tile.floodFilled)
+            return;
+        if (tiles.type == TileGroup.TileGroupType.Land && !tile.collidable)
+            return;
+        if (tiles.type == TileGroup.TileGroupType.Water && tile.collidable)
+            return;
+
+        // Add to TileGroup
+        tiles.tiles.add (tile);
+        tile.floodFilled = true;
+
+        // floodfill into neighbors
+        Tile t = getTop (tile);
+        if (!t.floodFilled && tile.collidable == t.collidable)
+            stack.push (t);
+        t = getBottom (tile);
+        if (!t.floodFilled && tile.collidable == t.collidable)
+            stack.push (t);
+        t = getLeft (tile);
+        if (!t.floodFilled && tile.collidable == t.collidable)
+            stack.push (t);
+        t = getRight (tile);
+        if (!t.floodFilled && tile.collidable == t.collidable)
+            stack.push (t);
+    }
+
+    private void updateNeighbors() {
+        for (int x = 0; x < WIDTH; x++)
+        {
+            for (int y = 0; y < HEIGHT; y++)
+            {
+                Tile t = tiles[x][y];
+
+                t.top = getTop(t);
+                t.bottom = getBottom(t);
+                t.left = getLeft(t);
+                t.right = getRight(t);
+
+                tiles[x][y] = t;
+            }
+        }
+    }
+
+    private void updateBitmask() {
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+                tiles [x][y].updateBitmask ();
+            }
+        }
+    }
+
+    private void updateBiomeBitmask() {
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+                tiles [x][y].updateBiomeBitmask ();
+            }
+        }
+    }
+
+    public static BiomeType getBiomeType(Tile tile) {
+        BiomeType biomeType = BIOME_TABLE [tile.moistureType.getNumVal()][tile.heatType.getNumVal()];
+        return biomeType;
+    }
+
+    public static void generateBiomeMap(int WIDTH, int HEIGHT, Tile[][] tiles) {
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+
+                if (!tiles[x][y].collidable) continue;
+
+                Tile t = tiles[x][y];
+                t.biomeType = getBiomeType(t);
+                tiles[x][y] = t;
+            }
+        }
+    }
+
+    private void addMoisture(Tile t, int radius) {
+        int startx = HeatType.MathHelper.mod (t.x - radius, WIDTH);
+        int endx = HeatType.MathHelper.mod (t.x + radius, WIDTH);
+        Vector2 center = new Vector2(t.x, t.y);
+        int curr = radius;
+
+        while (curr > 0) {
+
+            int x1 = HeatType.MathHelper.mod (t.x - curr, WIDTH);
+            int x2 = HeatType.MathHelper.mod (t.x + curr, WIDTH);
+            int y = t.y;
+
+            addMoisture(tiles[x1][y], 0.025f / (center.sub(new Vector2(x1, y))).len());
+
+            for (int i = 0; i < curr; i++)
+            {
+                addMoisture (tiles[x1][HeatType.MathHelper.mod (y + i + 1, HEIGHT)], 0.025f / (center.sub(new Vector2(x1, HeatType.MathHelper.mod (y + i + 1, HEIGHT)))).len());
+                addMoisture (tiles[x1][HeatType.MathHelper.mod (y - (i + 1), HEIGHT)], 0.025f / (center.sub(new Vector2(x1, HeatType.MathHelper.mod (y - (i + 1), HEIGHT)))).len());
+
+                addMoisture (tiles[x2][HeatType.MathHelper.mod (y + i + 1, HEIGHT)], 0.025f / (center.sub(new Vector2(x2, HeatType.MathHelper.mod (y + i + 1, HEIGHT)))).len());
+                addMoisture (tiles[x2][HeatType.MathHelper.mod (y - (i + 1), HEIGHT)], 0.025f / (center.sub(new Vector2(x2, HeatType.MathHelper.mod (y - (i + 1), HEIGHT)))).len());
+            }
+            curr--;
+        }
+    }
+
+    private void addMoisture(Tile t, float amount) {
+        moistureData.data[t.x][t.y] += amount;
+        t.moistureValue += amount;
+        if (t.moistureValue > 1)
+            t.moistureValue = 1;
+
+        //set moisture type
+        if (t.moistureValue < DryerValue) t.moistureType = MoistureType.Dryest;
+        else if (t.moistureValue < DryValue) t.moistureType = MoistureType.Dryer;
+        else if (t.moistureValue < WetValue) t.moistureType = MoistureType.Dry;
+        else if (t.moistureValue < WetterValue) t.moistureType = MoistureType.Wet;
+        else if (t.moistureValue < WettestValue) t.moistureType = MoistureType.Wetter;
+        else t.moistureType = MoistureType.Wettest;
+    }
+
+    private void adjustMoistureMap() {
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+
+                Tile t = tiles[x][y];
+                if (t.heightType == HeightType.River)
+                {
+                    addMoisture (t, (int)60);
+                }
+            }
+        }
+    }
+
+    private boolean inCircle(int radius, int centerX, int centerY, int x, int y) {
+        return Coord.get(centerX,centerY).distanceSq(Coord.get(x,y)) <= Math.pow(radius, 2);
+    }
+
+    private boolean lakeContains(Coord coord) {
+        for(List<Coord> lake : lakes) {
+            if (lake.contains(coord))
+                return true;
+        }
+        return false;
+    }
+
+    private GreasedRegion generateRiverBlockages(Coord[] riverSources) {
+        ArrayList<Coord> sources = new ArrayList(Arrays.asList(riverSources));
+        char[][] sourceMap = new char[WIDTH][HEIGHT];
+        for(int x = 0; x < WIDTH; x++) {
+            for(int y = 0;  y < HEIGHT; y++) {
+                sourceMap[x][y] = sources.contains(Coord.get(x,y)) ? '#' : '.';
+            }
+        }
+
+        // DungeonUtility.debugPrint(sourceMap);
+
+        // System.out.println();
+
+        GreasedRegion blockages = new GreasedRegion(CommonRNG.getRng(), .4, WIDTH, HEIGHT).andNot(new GreasedRegion(sourceMap, '#'));
+
+        return blockages;
+    }
+
+    private Coord[] generateRiverSources() {
+        List<Coord> riverSources;
+
+        GreasedRegion potentialRiverSources = new GreasedRegion(heightData.data, Grass, Rock);
+
+        riverSources = new ArrayList<>(Arrays.asList(potentialRiverSources.quasiRandomSeparated(.1, 50)));
+
+        return riverSources.toArray(new Coord[riverSources.size()]);
+    }
+
+    private void cleanUpRiverFlow(River river) {
+        Tile r, pr;
+        for(int i = 0; i < river.path.size(); i++) {
+            r = tiles[river.path.get(i).x][river.path.get(i).y];
+            r.originalHeightValue = r.heightValue;
+            r.heightValue *= .25;
+            if(i > 0) {
+                pr = tiles[river.path.get(i - 1).x][river.path.get(i - 1).y];
+
+                if(r.heightValue >= pr.heightValue) {
+                    r.heightValue = pr.heightValue - 0.01;
+                }
+            }
+        }
+    }
+
+    private Coord findLowerElevation(Coord currentLocation, List<Coord> coordsToIgnore, GreasedRegion riverBlockages,
+                                     GreasedRegion reuse, GreasedRegion temp) {
+        heights.refill(heightData.data, Sand, heightData.data[currentLocation.x][currentLocation.y])
+                .andNot(riverBlockages);
+
+        heights.removeAll(coordsToIgnore);
+
+        reuse.clear();
+        reuse.insert(currentLocation);
+        temp.remake(reuse).fringe();
+        int searchDistance = Math.max(WIDTH, HEIGHT);
+        for(int d = 1; d < searchDistance; d++)
+        {
+            if(temp.intersects(heights))
+            {
+                return temp.singleRandom(CommonRNG.getRng());
+            }
+            temp.remake(reuse.expand()).fringe();
+        }
+        return null;
+    }
+
+    public double getHeightValue(Tile tile) {
+        if (tile == null)
+            return Integer.MAX_VALUE;
+        else
+            return tile.heightValue;
+    }
+
+
+    private Tile getTop(Tile t)
+    {
+        return tiles [t.x][HeatType.MathHelper.mod (t.y - 1, HEIGHT)];
+    }
+    private Tile getBottom(Tile t)
+    {
+        return tiles [t.x][HeatType.MathHelper.mod (t.y + 1, HEIGHT)];
+    }
+    private Tile getLeft(Tile t)
+    {
+        return tiles [HeatType.MathHelper.mod(t.x - 1, WIDTH)][t.y];
+    }
+    private Tile getRight(Tile t)
+    {
+        return tiles [HeatType.MathHelper.mod (t.x + 1, WIDTH)][t.y];
+    }
+    private Tile getTopLeft(Tile t) {
+        return tiles [HeatType.MathHelper.mod(t.x-1, WIDTH)][HeatType.MathHelper.mod(t.y+1, WIDTH)];
+    }
+    private Tile getTopRight(Tile t) {
+        return tiles [HeatType.MathHelper.mod(t.x+1, WIDTH)][HeatType.MathHelper.mod(t.y+1, WIDTH)];
+    }
+    private Tile getBottomLeft(Tile t) {
+        return tiles [HeatType.MathHelper.mod(t.x-1, WIDTH)][HeatType.MathHelper.mod(t.y-1, WIDTH)];
+    }
+    private Tile getBottomRight(Tile t) {
+        return tiles [HeatType.MathHelper.mod(t.x+1, WIDTH)][HeatType.MathHelper.mod(t.y-1, WIDTH)];
+    }
+
+    public void dispose() {
+        heightmap = null;
+        heatmap = null;
+        moisturemap = null;
+
+        heightData = null;
+        heatData = null;
+        moistureData = null;
+
+        tiles = null;
+        politicalMap = null;
+        waterLandMap = null;
+
+        aStarPath = null;
+        heuristic = null;
+        riverPathFinder = null;
+        MapTextureGenerator.dispose();
+
+        waters = null;
+        lands = null;
+        ocean = null;
+        lakes = null;
     }
 
     private void fillDepressions() {
@@ -763,715 +1654,32 @@ public class MapGenerator {
         }
     }
 
-    private void refreshTiles(boolean setMoistureBasedOnHeight) {
-        resetHeatValues();
-        for (int x = 0; x < WIDTH; x++)
-        {
-            for (int y = 0; y < HEIGHT; y++)
-            {
-                Tile t = tiles[x][y];
-
-                double value = heightData.data[x][y];
-                value = (value - heightData.min) / (heightData.max - heightData.min);
-
-                t.heightValue = value;
-
-                //HeightMap Analyze
-                if (t.heightType == HeightType.River) {
-                    t.collidable = false;
-                }
-                else if(t.heightType == HeightType.DebugDestination || t.heightType == HeightType.DebugSource || t.heightType == HeightType.DebugCoastline) {
-                    t.collidable = false;
-                }
-                else if (value < DeepWater)  {
-                    t.heightType = HeightType.DeepWater;
-                    t.collidable = false;
-                }
-                else if (value < ShallowWater)  {
-                    t.heightType = HeightType.ShallowWater;
-                    t.collidable = false;
-                }
-                else if (value < MediumWater)  {
-                    t.heightType = HeightType.MediumWater;
-                    t.collidable = false;
-                }
-                else if (value < CoastalWater)  {
-                    t.heightType = HeightType.CoastalWater;
-                    t.collidable = false;
-                }
-                else if (value < Sand) {
-                    t.heightType = HeightType.Sand;
-                    t.collidable = true;
-                }
-                else if (value < Grass) {
-                    t.heightType = HeightType.Grass;
-                    t.collidable = true;
-                }
-                else if (value < Forest) {
-                    t.heightType = HeightType.Forest;
-                    t.collidable = true;
-                }
-                else if (value < Rock) {
-                    t.heightType = HeightType.Rock;
-                    t.collidable = true;
-                }
-                else  {
-                    t.heightType = HeightType.Snow;
-                    t.collidable = true;
-                }
-
-
-
-                //adjust moisture based on height
-                if(setMoistureBasedOnHeight) {
-                    if (t.heightType == HeightType.DeepWater) {
-                        moistureData.data[t.x][t.y] += 8f * t.heightValue;
-                    } else if (t.heightType == HeightType.MediumWater) {
-                        moistureData.data[t.x][t.y] += 5f * t.heightValue;
-                    } else if (t.heightType == HeightType.ShallowWater) {
-                        moistureData.data[t.x][t.y] += 3f * t.heightValue;
-                    } else if (t.heightType == HeightType.CoastalWater) {
-                        moistureData.data[t.x][t.y] += 2f * t.heightValue;
-                    } else if (t.heightType == HeightType.Shore) {
-                        moistureData.data[t.x][t.y] += 1f * t.heightValue;
-                    } else if (t.heightType == HeightType.Sand) {
-                        moistureData.data[t.x][t.y] += 0.2f * t.heightValue;
-                    }
-                }
-
-                //Moisture Map Analyze
-                double moistureValue = moistureData.data[x][y];
-                moistureValue = (moistureValue - moistureData.min) / (moistureData.max - moistureData.min);
-                t.moistureValue = moistureValue;
-
-                //set moisture type
-                if (moistureValue < DryerValue) t.moistureType = MoistureType.Dryest;
-                else if (moistureValue < DryValue) t.moistureType = MoistureType.Dryer;
-                else if (moistureValue < WetValue) t.moistureType = MoistureType.Dry;
-                else if (moistureValue < WetterValue) t.moistureType = MoistureType.Wet;
-                else if (moistureValue < WettestValue) t.moistureType = MoistureType.Wetter;
-                else t.moistureType = MoistureType.Wettest;
-
-                // Adjust Heat Map based on Height - Higher == colder
-                if (t.heightType == HeightType.Forest) {
-                    heatData.data[t.x][t.y] -= 0.1f * t.heightValue;
-                }
-                else if (t.heightType == HeightType.Rock) {
-                    heatData.data[t.x][t.y] -= 0.25f * t.heightValue;
-                }
-                else if (t.heightType == HeightType.Snow) {
-                    heatData.data[t.x][t.y] -= 0.4f * t.heightValue;
-                }
-                else {
-                    heatData.data[t.x][t.y] += 0.01f * t.heightValue;
-                }
-
-                // Set heat value
-                double heatValue = heatData.data[x][y];
-                heatValue = (heatValue - heatData.min) / (heatData.max - heatData.min);
-                t.heatValue = heatValue;
-
-                // set heat type
-                if (heatValue < ColdestValue) t.heatType = HeatType.Coldest;
-                else if (heatValue < ColderValue) t.heatType = HeatType.Colder;
-                else if (heatValue < ColdValue) t.heatType = HeatType.Cold;
-                else if (heatValue < WarmValue) t.heatType = HeatType.Warm;
-                else if (heatValue < WarmerValue) t.heatType = HeatType.Warmer;
-                else t.heatType = HeatType.Warmest;
-
-                tiles[x][y] = t;
-            }
-        }
-    }
-
-    private void resetHeatValues() {
-        heatData.data = initialHeatData;
-    }
-
-    private void createWaterLandMaps() {
-        waterLandMap = ArrayTools.fill('#', WIDTH, HEIGHT);
-        for(int x = 0; x < WIDTH; x++) {
-            for(int y = 0; y < HEIGHT; y++) {
-                if(tiles[x][y].heightType.getNumVal() > 5) {
-                    waterLandMap[x][y] = '.';
-                }
-            }
-        }
-
-        List<List<Coord>> waterBodies = new ArrayList<>();
-        char[][] tempWaterMap = ArrayTools.copy(waterLandMap);
-
-        GreasedRegion waterRegion = new GreasedRegion(waterLandMap, '#');
-        char[][] water = waterRegion.toChars();
-
-
-        Coord spreadSource;
-        List<Coord> spill;
-
-        Splash spreader = new Splash();
-        while(waterRegion.size() > 0) {
-            water = waterRegion.toChars();
-            spreadSource = waterRegion.singleRandom(CommonRNG.getRng());
-            spill = spreader.spill(CommonRNG.getRng(), water, spreadSource, WIDTH*HEIGHT, 0);
-            waterBodies.add(spill);
-            for(Coord c: spill) {
-                tempWaterMap[c.x][c.y] = '#';
-            }
-            tempWaterMap[spreadSource.x][spreadSource.y] = '#';
-            /*DungeonUtility.debugPrint(tempWaterMap);*/
-            waterRegion.removeAll(spill);
-            /*System.out.println();*/
-        }
-        /*System.out.println();*/
-
-        waterBodies.sort(new Comparator<List<Coord>>() {
-            @Override
-            public int compare(List<Coord> o1, List<Coord> o2) {
-                return Integer.valueOf(o1.size()).compareTo(o2.size());
-            }
-        });
-
-        ocean = waterBodies.get(waterBodies.size()-1);
-        waterBodies.remove(ocean);
-        lakes = waterBodies;
-        coastline = new GreasedRegion(waterLandMap, '.').fringe();
-
-        /*Tile t;
-        for(Coord c : ocean) {
-            t = tiles[c.x][c.y];
-            t.heightValue = 0;
-            t.heightType = HeightType.River;
-        }*/
-    }
-
-    private boolean contains(int tx, int ty) {
-        if(tx >= 0 && tx < WIDTH && ty >= 0 && ty < HEIGHT) return true;
-        return false;
-    }
-
-    private void generateFactionMap(final int factionCount, double controlledFraction) {
-        MultiSpill spreader = new MultiSpill(new short[WIDTH][HEIGHT], Measurement.MANHATTAN, CommonRNG.getRng());
-        OrderedMap<Coord, Double> entries = new OrderedMap<>();
-
-        short[][] regionMap = new short[WIDTH][HEIGHT];
-
-        for(int x = 0; x < WIDTH; x++) {
-            for(int y = 0; y < HEIGHT; y++) {
-                if(tiles[x][y].heightValue >= Sand)
-                {
-                    regionMap[x][y] = 0;
-                }
-                else
-                {
-                    regionMap[x][y] = -1;
-                }
-            }
-        }
-
-        GreasedRegion factionMap = new GreasedRegion(waterLandMap, '.');
-        Coord[] centers = factionMap.randomSeparated(0.1, CommonRNG.getRng(), factionCount);
-        int controlled = (int) (factionMap.size() * Math.max(0.0, Math.min(1.0, controlledFraction)));
-
-        Set<Coord> impassable = new squidpony.squidmath.OrderedSet<>(factionMap.not().asCoords());
-
-        spreader.initialize(regionMap);
-        entries.put(Coord.get(-1, -1), 0.0);
-        for (int i = 0; i < factionCount; i++) {
-            entries.put(centers[i], CommonRNG.getRng().nextDouble());
-        }
-        spreader.start(entries, controlled, impassable);
-        regionMap = spreader.spillMap;
-
-
-
-        politicalMap = new char[WIDTH][HEIGHT];
-        for (int x = 0; x < WIDTH; x++) {
-            for (int y = 0; y < HEIGHT; y++) {
-                politicalMap[x][y] = (regionMap[x][y] == -1) ? '~' : (regionMap[x][y] == 0) ? '%' : letters[(regionMap[x][y] - 1) & 255];
-            }
-        }
-        atlas.clear();
-        atlas.put('~', "Water");
-        atlas.put('%', "Wilderness");
-        if(factionCount > 0) {
-            Thesaurus th = new Thesaurus(CommonRNG.getRng().nextLong());
-            th.addKnownCategories();
-            for (int i = 0; i < factionCount && i < 256; i++) {
-                atlas.put(letters[i], th.makeNationName());
-            }
-        }
-
-        // DungeonUtility.debugPrint(politicalMap);
-    }
-
-    private void initialize() {
-        Coord.expandPoolTo(WIDTH+3, HEIGHT+3);
-
-        // Initialize the heightmap generator
-        ModuleFractal heightFractal = new ModuleFractal (ModuleFractal.FractalType.FBM,
-                ModuleBasisFunction.BasisType.GRADIENT,
-                ModuleBasisFunction.InterpolationType.QUINTIC);
-        heightFractal.setNumOctaves(terrainOctaves);
-        heightFractal.setFrequency(terrainFrequency);
-        heightFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
-
-        ModuleFractal ridgedHeightFractal = new ModuleFractal (ModuleFractal.FractalType.RIDGEMULTI,
-                ModuleBasisFunction.BasisType.SIMPLEX,
-                ModuleBasisFunction.InterpolationType.QUINTIC);
-        ridgedHeightFractal.setNumOctaves(terrainRidgeOctaves);
-        ridgedHeightFractal.setFrequency(terrainFrequency);
-        ridgedHeightFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
-
-        ModuleTranslateDomain heightTranslateDomain = new ModuleTranslateDomain();
-        heightTranslateDomain.setSource(heightFractal);
-        heightTranslateDomain.setAxisXSource(ridgedHeightFractal);
-
-        heightmap = new ModuleAutoCorrect();
-        heightmap.setSamples(1000);
-        heightmap.setSource(heightTranslateDomain);
-        heightmap.calculate();
-
-
-        // Initialize the heat map generator
-        ModuleGradient heatmapGradient = new ModuleGradient();
-        heatmapGradient.setGradient(0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0);
-
-        ModuleFractal heatFractal = new ModuleFractal (ModuleFractal.FractalType.MULTI,
-                ModuleBasisFunction.BasisType.SIMPLEX,
-                ModuleBasisFunction.InterpolationType.QUINTIC);
-        heatFractal.setNumOctaves(heatOctaves);
-        heatFractal.setFrequency(heatFrequency);
-        heatFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
-
-        heatmap = new ModuleCombiner(ModuleCombiner.CombinerType.MULT);
-        heatmap.setSource(0, heatmapGradient);
-        heatmap.setSource(1, heatFractal);
-
-
-        // Initialize the moisture map generator
-        ModuleFractal moistureFractal = new ModuleFractal (ModuleFractal.FractalType.MULTI,
-                ModuleBasisFunction.BasisType.SIMPLEX,
-                ModuleBasisFunction.InterpolationType.QUINTIC);
-        moistureFractal.setNumOctaves(moistureOctaves);
-        moistureFractal.setFrequency(moistureFrequency);
-        moistureFractal.setSeed(CommonRNG.getRng().between(0, Integer.MAX_VALUE));
-
-        moisturemap = new ModuleAutoCorrect();
-        moisturemap.setSamples(1000);
-        moisturemap.setSource(moistureFractal);
-        moisturemap.calculate();
-    }
-
-    // Extract data from a noise module
-    private void getData() {
-        heightData = new MapData(WIDTH, HEIGHT);
-        heatData = new MapData(WIDTH, HEIGHT);
-        moistureData = new MapData(WIDTH, HEIGHT);
-
-        // loop through each x,y point - get height value
-        for (int x = 0; x < WIDTH; x++) {
-            for (int y = 0; y < HEIGHT; y++) {
-
-                // Noise range
-                float x1 = 0, x2 = 2;
-                float y1 = 0, y2 = 2;
-                float dx = x2 - x1;
-                float dy = y2 - y1;
-
-                // Sample noise at smaller intervals
-                float s = x / (float) WIDTH;
-                float t = y / (float) HEIGHT;
-
-
-                // Calculate our 4D coordinates
-                float nx = x1 + MathUtils.cos(s * 2 * MathUtils.PI) * dx / (2 * MathUtils.PI);
-                float ny = y1 + MathUtils.cos(t * 2 * MathUtils.PI) * dy / (2 * MathUtils.PI);
-                float nz = x1 + MathUtils.sin(s * 2 * MathUtils.PI) * dx / (2 * MathUtils.PI);
-                float nw = y1 + MathUtils.sin(t * 2 * MathUtils.PI) * dy / (2 * MathUtils.PI);
-
-                float heightValue = (float) heightmap.get(nx * terrainNoiseScale, ny * terrainNoiseScale, nz * terrainNoiseScale, nw * terrainNoiseScale);
-                float heatValue = (float) heatmap.get(nx * heatNoiseScale, ny * heatNoiseScale, nz * heatNoiseScale, nw * heatNoiseScale);
-                float moistureValue = (float) moisturemap.get(nx * moistureNoiseScale, ny * moistureNoiseScale, nz * moistureNoiseScale, nw * moistureNoiseScale);
-
-                // keep track of the max and min values found
-                if (heightValue > heightData.max) heightData.max = heightValue;
-                if (heightValue < heightData.min) heightData.min = heightValue;
-
-                if (heatValue > heatData.max) heatData.max = heatValue;
-                if (heatValue < heatData.min) heatData.min = heatValue;
-
-                if (moistureValue > moistureData.max) moistureData.max = moistureValue;
-                if (moistureValue < moistureData.min) moistureData.min = moistureValue;
-
-                heightData.data[x][y] = heightValue;
-                heatData.data[x][y] = heatValue;
-                moistureData.data[x][y] = moistureValue;
-
-                initialHeatData = heatData.data;
-            }
-        }
-    }
-
-    // Build a Tile array from our data
-    private void loadTiles() {
-        tiles = new Tile[WIDTH][HEIGHT];
-
-        for (int x = 0; x < WIDTH; x++)
-        {
-            for (int y = 0; y < HEIGHT; y++)
-            {
-                Tile t = new Tile();
-                t.x = x;
-                t.y = y;
-
-                double value = heightData.data[x][y];
-                value = (value - heightData.min) / (heightData.max - heightData.min);
-
-                t.heightValue = value;
-
-                //HeightMap Analyze
-                if (value < DeepWater)  {
-                    t.heightType = HeightType.DeepWater;
-                    t.collidable = false;
-                }
-                else if (value < ShallowWater)  {
-                    t.heightType = HeightType.ShallowWater;
-                    t.collidable = false;
-                }
-                else if (value < MediumWater)  {
-                    t.heightType = HeightType.MediumWater;
-                    t.collidable = false;
-                }
-                else if (value < CoastalWater)  {
-                    t.heightType = HeightType.CoastalWater;
-                    t.collidable = false;
-                }
-                else if (value < Sand) {
-                    t.heightType = HeightType.Sand;
-                    t.collidable = true;
-                }
-                else if (value < Grass) {
-                    t.heightType = HeightType.Grass;
-                    t.collidable = true;
-                }
-                else if (value < Forest) {
-                    t.heightType = HeightType.Forest;
-                    t.collidable = true;
-                }
-                else if (value < Rock) {
-                    t.heightType = HeightType.Rock;
-                    t.collidable = true;
-                }
-                else  {
-                    t.heightType = HeightType.Snow;
-                    t.collidable = true;
-                }
-
-                // Adjust Heat Map based on Height - Higher == colder
-                if (t.heightType == HeightType.Forest) {
-                    heatData.data[t.x][t.y] -= 0.1f * t.heightValue;
-                }
-                else if (t.heightType == HeightType.Rock) {
-                    heatData.data[t.x][t.y] -= 0.25f * t.heightValue;
-                }
-                else if (t.heightType == HeightType.Snow) {
-                    heatData.data[t.x][t.y] -= 0.4f * t.heightValue;
-                }
-                else {
-                    heatData.data[t.x][t.y] += 0.01f * t.heightValue;
-                }
-
-                // Set heat value
-                double heatValue = heatData.data[x][y];
-                heatValue = (heatValue - heatData.min) / (heatData.max - heatData.min);
-                t.heatValue = heatValue;
-
-                // set heat type
-                if (heatValue < ColdestValue) t.heatType = HeatType.Coldest;
-                else if (heatValue < ColderValue) t.heatType = HeatType.Colder;
-                else if (heatValue < ColdValue) t.heatType = HeatType.Cold;
-                else if (heatValue < WarmValue) t.heatType = HeatType.Warm;
-                else if (heatValue < WarmerValue) t.heatType = HeatType.Warmer;
-                else t.heatType = HeatType.Warmest;
-
-                tiles[x][y] = t;
-            }
-        }
-    }
-
-    private void floodFill(Tile tile, TileGroup tiles, Stack<Tile> stack) {
-        // Validate
-        if (tile.floodFilled)
-            return;
-        if (tiles.type == TileGroup.TileGroupType.Land && !tile.collidable)
-            return;
-        if (tiles.type == TileGroup.TileGroupType.Water && tile.collidable)
-            return;
-
-        // Add to TileGroup
-        tiles.tiles.add (tile);
-        tile.floodFilled = true;
-
-        // floodfill into neighbors
-        Tile t = getTop (tile);
-        if (!t.floodFilled && tile.collidable == t.collidable)
-            stack.push (t);
-        t = getBottom (tile);
-        if (!t.floodFilled && tile.collidable == t.collidable)
-            stack.push (t);
-        t = getLeft (tile);
-        if (!t.floodFilled && tile.collidable == t.collidable)
-            stack.push (t);
-        t = getRight (tile);
-        if (!t.floodFilled && tile.collidable == t.collidable)
-            stack.push (t);
-    }
-
-    private void updateNeighbors() {
-        for (int x = 0; x < WIDTH; x++)
-        {
-            for (int y = 0; y < HEIGHT; y++)
-            {
-                Tile t = tiles[x][y];
-
-                t.top = getTop(t);
-                t.bottom = getBottom(t);
-                t.left = getLeft(t);
-                t.right = getRight(t);
-
-                tiles[x][y] = t;
-            }
-        }
-    }
-
-    private void updateBitmasks() {
-        for (int x = 0; x < WIDTH; x++) {
-            for (int y = 0; y < HEIGHT; y++) {
-                tiles [x][y].updateBitmask ();
-            }
-        }
-    }
-
-    private void updateBiomeBitmask() {
-        for (int x = 0; x < WIDTH; x++) {
-            for (int y = 0; y < HEIGHT; y++) {
-                tiles [x][y].updateBiomeBitmask ();
-            }
-        }
-    }
-
-    public BiomeType getBiomeType(Tile tile) {
-        BiomeType biomeType = BIOME_TABLE [tile.moistureType.getNumVal()][tile.heatType.getNumVal()];
-        return biomeType;
-    }
-
-    private void generateBiomeMap() {
-        for (int x = 0; x < WIDTH; x++) {
-            for (int y = 0; y < HEIGHT; y++) {
-
-                if (!tiles[x][y].collidable) continue;
-
-                Tile t = tiles[x][y];
-                t.biomeType = getBiomeType(t);
-                tiles[x][y] = t;
-            }
-        }
-    }
-
-    private void addMoisture(Tile t, int radius) {
-        int startx = HeatType.MathHelper.mod (t.x - radius, WIDTH);
-        int endx = HeatType.MathHelper.mod (t.x + radius, WIDTH);
-        Vector2 center = new Vector2(t.x, t.y);
-        int curr = radius;
-
-        while (curr > 0) {
-
-            int x1 = HeatType.MathHelper.mod (t.x - curr, WIDTH);
-            int x2 = HeatType.MathHelper.mod (t.x + curr, WIDTH);
-            int y = t.y;
-
-            addMoisture(tiles[x1][y], 0.025f / (center.sub(new Vector2(x1, y))).len());
-
-            for (int i = 0; i < curr; i++)
-            {
-                addMoisture (tiles[x1][HeatType.MathHelper.mod (y + i + 1, HEIGHT)], 0.025f / (center.sub(new Vector2(x1, HeatType.MathHelper.mod (y + i + 1, HEIGHT)))).len());
-                addMoisture (tiles[x1][HeatType.MathHelper.mod (y - (i + 1), HEIGHT)], 0.025f / (center.sub(new Vector2(x1, HeatType.MathHelper.mod (y - (i + 1), HEIGHT)))).len());
-
-                addMoisture (tiles[x2][HeatType.MathHelper.mod (y + i + 1, HEIGHT)], 0.025f / (center.sub(new Vector2(x2, HeatType.MathHelper.mod (y + i + 1, HEIGHT)))).len());
-                addMoisture (tiles[x2][HeatType.MathHelper.mod (y - (i + 1), HEIGHT)], 0.025f / (center.sub(new Vector2(x2, HeatType.MathHelper.mod (y - (i + 1), HEIGHT)))).len());
-            }
-            curr--;
-        }
-    }
-
-    private void addMoisture(Tile t, float amount) {
-        moistureData.data[t.x][t.y] += amount;
-        t.moistureValue += amount;
-        if (t.moistureValue > 1)
-            t.moistureValue = 1;
-
-        //set moisture type
-        if (t.moistureValue < DryerValue) t.moistureType = MoistureType.Dryest;
-        else if (t.moistureValue < DryValue) t.moistureType = MoistureType.Dryer;
-        else if (t.moistureValue < WetValue) t.moistureType = MoistureType.Dry;
-        else if (t.moistureValue < WetterValue) t.moistureType = MoistureType.Wet;
-        else if (t.moistureValue < WettestValue) t.moistureType = MoistureType.Wetter;
-        else t.moistureType = MoistureType.Wettest;
-    }
-
-    private void adjustMoistureMap() {
-        for (int x = 0; x < WIDTH; x++) {
-            for (int y = 0; y < HEIGHT; y++) {
-
-                Tile t = tiles[x][y];
-                if (t.heightType == HeightType.River)
-                {
-                    addMoisture (t, (int)60);
-                }
-            }
-        }
-    }
-
-    private boolean inCircle(int radius, int centerX, int centerY, int x, int y) {
-        return Coord.get(centerX,centerY).distanceSq(Coord.get(x,y)) <= Math.pow(radius, 2);
-    }
-
-    private boolean lakeContains(Coord coord) {
-        for(List<Coord> lake : lakes) {
-            if (lake.contains(coord))
-                return true;
-        }
-        return false;
-    }
-
-    private GreasedRegion generateRiverBlockages(Coord[] riverSources) {
-        ArrayList<Coord> sources = new ArrayList(Arrays.asList(riverSources));
-        char[][] sourceMap = new char[WIDTH][HEIGHT];
-        for(int x = 0; x < WIDTH; x++) {
-            for(int y = 0;  y < HEIGHT; y++) {
-                sourceMap[x][y] = sources.contains(Coord.get(x,y)) ? '#' : '.';
-            }
-        }
-
-        // DungeonUtility.debugPrint(sourceMap);
-
-        // System.out.println();
-
-        GreasedRegion blockages = new GreasedRegion(CommonRNG.getRng(), .4, WIDTH, HEIGHT).andNot(new GreasedRegion(sourceMap, '#'));
-
-        return blockages;
-    }
-
-    private Coord[] generateRiverSources() {
-        List<Coord> riverSources;
-
-        GreasedRegion potentialRiverSources = new GreasedRegion(heightData.data, Grass, Rock);
-
-        riverSources = new ArrayList<>(Arrays.asList(potentialRiverSources.quasiRandomSeparated(.1, 50)));
-
-        return riverSources.toArray(new Coord[riverSources.size()]);
-    }
-
-    private void cleanUpRiverFlow(River river) {
-        Tile r, pr;
-        for(int i = 0; i < river.path.size(); i++) {
-            r = tiles[river.path.get(i).x][river.path.get(i).y];
-            r.originalHeightValue = r.heightValue;
-            r.heightValue *= .25;
-            if(i > 0) {
-                pr = tiles[river.path.get(i - 1).x][river.path.get(i - 1).y];
-
-                if(r.heightValue >= pr.heightValue) {
-                    r.heightValue = pr.heightValue - 0.01;
-                }
-            }
-        }
-    }
-
-    private Coord findLowerElevation(Coord currentLocation, List<Coord> coordsToIgnore, GreasedRegion riverBlockages,
-                                     GreasedRegion reuse, GreasedRegion temp) {
-        heights.refill(heightData.data, Sand, heightData.data[currentLocation.x][currentLocation.y])
-                .andNot(riverBlockages);
-
-        heights.removeAll(coordsToIgnore);
-
-        reuse.clear();
-        reuse.insert(currentLocation);
-        temp.remake(reuse).fringe();
-        int searchDistance = Math.max(WIDTH, HEIGHT);
-        for(int d = 1; d < searchDistance; d++)
-        {
-            if(temp.intersects(heights))
-            {
-                return temp.singleRandom(CommonRNG.getRng());
-            }
-            temp.remake(reuse.expand()).fringe();
-        }
-        return null;
-    }
-
-    public double getHeightValue(Tile tile) {
-        if (tile == null)
-            return Integer.MAX_VALUE;
-        else
-            return tile.heightValue;
-    }
-
-
-    private Tile getTop(Tile t)
-    {
-        return tiles [t.x][HeatType.MathHelper.mod (t.y - 1, HEIGHT)];
-    }
-    private Tile getBottom(Tile t)
-    {
-        return tiles [t.x][HeatType.MathHelper.mod (t.y + 1, HEIGHT)];
-    }
-    private Tile getLeft(Tile t)
-    {
-        return tiles [HeatType.MathHelper.mod(t.x - 1, WIDTH)][t.y];
-    }
-    private Tile getRight(Tile t)
-    {
-        return tiles [HeatType.MathHelper.mod (t.x + 1, WIDTH)][t.y];
-    }
-    private Tile getTopLeft(Tile t) {
-        return tiles [HeatType.MathHelper.mod(t.x-1, WIDTH)][HeatType.MathHelper.mod(t.y+1, WIDTH)];
-    }
-    private Tile getTopRight(Tile t) {
-        return tiles [HeatType.MathHelper.mod(t.x+1, WIDTH)][HeatType.MathHelper.mod(t.y+1, WIDTH)];
-    }
-    private Tile getBottomLeft(Tile t) {
-        return tiles [HeatType.MathHelper.mod(t.x-1, WIDTH)][HeatType.MathHelper.mod(t.y-1, WIDTH)];
-    }
-    private Tile getBottomRight(Tile t) {
-        return tiles [HeatType.MathHelper.mod(t.x+1, WIDTH)][HeatType.MathHelper.mod(t.y-1, WIDTH)];
-    }
-
-    public void dispose() {
-        heightmap = null;
-        heatmap = null;
-        moisturemap = null;
-
-        heightData = null;
-        heatData = null;
-        moistureData = null;
-
-        tiles = null;
-        politicalMap = null;
-        waterLandMap = null;
-
-        aStarPath = null;
-        heuristic = null;
-        riverPathFinder = null;
-        MapTextureGenerator.dispose();
-
-        waters = null;
-        lands = null;
-        ocean = null;
-        lakes = null;
-    }
 
     public Tile[][] getTiles() {
         return tiles;
+    }
+
+    public Texture getWaterMapTexture() {
+        return waterMapTexture;
+    }
+
+    public Texture getHeatMapTexture() {
+        return heatMapTexture;
+    }
+
+    public Texture getMoistureMapTexture() {
+        return moistureMapTexture;
+    }
+
+    public Texture getPoliticalMapTexture() {
+        return politicalMapTexture;
+    }
+
+    public Texture getBiomeMapTexture() {
+        return biomeMapTexture;
+    }
+
+    public void setTerrainNoiseScale(double terrainNoiseScale) {
+        this.terrainNoiseScale = terrainNoiseScale;
     }
 }

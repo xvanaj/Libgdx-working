@@ -1,4 +1,4 @@
-package core.cartezza.mapgenerator.generator;
+package core.cartezza.mapgenerator.generator.domain;
 
 /**
  * Created by zachcarter on 12/15/16.

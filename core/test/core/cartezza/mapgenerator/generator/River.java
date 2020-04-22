@@ -1,5 +1,6 @@
 package core.cartezza.mapgenerator.generator;
 
+import core.cartezza.mapgenerator.generator.domain.Tile;
 import core.map.common.Direction;
 import squidpony.squidmath.Coord;
 
