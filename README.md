@@ -57,11 +57,11 @@ Largest map tried was 4096x4096 but is rendered with just 1fps on middle-tier de
 ### Sample maps
 ------------ | ------------- | 
 ------------ | ------------- |
-Biome ![Biome map](core/assets/world/2394544200062520133/texture/biomemap.png) | Heat: ![Biome map](core/assets/world/2394544200062520133/texture/heatmap.png)
-Moisture: ![Biome map](core/assets/world/2394544200062520133/texture/moisturemap.png) | Water: ![Biome map](core/assets/world/2394544200062520133/texture/watermap.png)
-Territory: ![Biome map](core/assets/world/2394544200062520133/texture/territorymap.png) | Normal: ![Biome map](core/assets/world/2394544200062520133/texture/normalmap.png)
-Color heightmap: ![Biome map](core/assets/world/2394544200062520133/texture/color_heightmap.png) | Hostility: ![Biome map](core/assets/world/2394544200062520133/texture/hostilitymap.png)
-Height: |![Biome map](core/assets/world/2394544200062520133/texture/heightmap.png) | Inverted noise: |![Biome map](core/assets/world/2394544200062520133/texture/invertednoisemap.png)
+Biome ![Biome map](core/assets/world/-7415453185662118886/texture/biomemap.png) | Heat: ![Biome map](core/assets/world/-7415453185662118886/texture/heatmap.png)
+Moisture: ![Biome map](core/assets/world/-7415453185662118886/texture/moisturemap.png) | Water: ![Biome map](core/assets/world/-7415453185662118886/texture/watermap.png)
+Territory: ![Biome map](core/assets/world/-7415453185662118886/texture/territorymap.png) | Normal: ![Biome map](core/assets/world/-7415453185662118886/texture/normalmap.png)
+Color heightmap: ![Biome map](core/assets/world/-7415453185662118886/texture/color_heightmap.png) | Hostility: ![Biome map](core/assets/world/-7415453185662118886/texture/hostilitymap.png)
+Height: |![Biome map](core/assets/world/-7415453185662118886/texture/heightmap.png) | Inverted noise: |![Biome map](core/assets/world/-7415453185662118886/texture/invertednoisemap.png)
 
 
 ### Todos for current features or known bugs
