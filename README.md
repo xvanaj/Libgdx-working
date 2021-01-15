@@ -1,15 +1,15 @@
-#LibGdx training
-###Motivation
+# LibGdx training
+### Motivation
 This project was created for purposes to learn LibGdx. As I have two infants Im currently struggling with spare time which can be seen on the quality of code. 
 Most of this was done in a way just to have it working asap. Hopefully in future I will find some time for refactoring  
 
-###Credits
+### Credits
 Currently, some of the functionality is used from other projects. A large thank you is dedicated mainly to two projects: 
 Cartezza map generator - textures creation for maps was mainly used from mapgen project created by ... 
 SquidLib - library created to simplify creation of roguelike games. Contains for example world map generators, dungeon generators, some classes simplyfying ui and dungeon display and many utility classes usefull for creation of roguelike games 
 Icons - mostly from hive workshop. Credits to each one of the icons (or group of icons) will be in assets folder in text file credits.txt
 
-###Contents
+### Contents
 What there currently is:
 Map (world) generator with following features:
 - Generate world up to 2048x2048 tiles. Bigger world is also possible but it is not recommended as may take a lot of time and possibly fail on low memory. 
@@ -22,7 +22,7 @@ Largest map tried was 4096x4096 but is rendered with just 1fps on middle-tier de
 
   
 
-###Roadmap
+### Roadmap
 - dungeon generation using squidlib. Start with some simple dungeon, then create multiple various options. Dungeon can be entered from world map
 - add battlefield map. There should be list with entities sorted by initiative order, panel with PC's, panel with NPC's
 - add random materials to each world.
@@ -54,7 +54,7 @@ Largest map tried was 4096x4096 but is rendered with just 1fps on middle-tier de
 
 
 
-###Sample maps
+### Sample maps
 ------------ | ------------- | 
 ------------ | ------------- |
 Biome ![Biome map](core/assets/world/2394544200062520133/texture/biomemap.png) | Heat: ![Biome map](core/assets/world/2394544200062520133/texture/heatmap.png)
@@ -64,6 +64,6 @@ Color heightmap: ![Biome map](core/assets/world/2394544200062520133/texture/colo
 Height: |![Biome map](core/assets/world/2394544200062520133/texture/heightmap.png) | Inverted noise: |![Biome map](core/assets/world/2394544200062520133/texture/invertednoisemap.png)
 
 
-###Todos for current features or known bugs
+### Todos for current features or known bugs
 - trees placement inside tile should be random (current there can be patterns seen on world map as position is calculated from tiles x and y position) 
 - allow more trees on one tile 
