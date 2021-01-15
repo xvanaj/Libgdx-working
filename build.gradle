@@ -5,6 +5,10 @@ buildscript {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
         maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+        maven { url "https://mvnrepository.com/artifact/com.squidpony/squidlib-util" }
+        maven { url "https://mvnrepository.com/artifact" }
+        maven { url "http://www.javaxt.com/maven" }
+
         jcenter()
         google()
     }
@@ -14,17 +18,18 @@ buildscript {
 }
 
 allprojects {
-    apply plugin: "eclipse"
     apply plugin: "idea"
 
     version = '1.0'
     ext {
-        appName = "my-gdx-com.mygdx.game"
-        gdxVersion = '1.9.9'
-        roboVMVersion = '2.3.6'
-        box2DLightsVersion = '1.4'
-        ashleyVersion = '1.7.0'
+        appName = "my-core.gdx-com.mygdx.game"
+        gdxVersion = '1.9.12'
+        roboVMVersion = '1.0.0'
+        box2DLightsVersion = '1.3'
+        ashleyVersion = '1.3.1'
         aiVersion = '1.8.0'
+        joiseVersion = '1.1.0'
+        visuiVersion = '1.4.6'
     }
 
     repositories {
@@ -34,6 +39,8 @@ allprojects {
         google()
         maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
         maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+        maven { url "https://jitpack.io/" }
+        maven { url "http://www.javaxt.com/maven" }
     }
 }
 
@@ -46,41 +53,61 @@ project(":desktop") {
         compile "junit:junit:4.+"
         compile "org.mockito:mockito-all:1.9.+"
 
-        compile "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
-        compile "com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
-        compile "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
-        compile "com.badlogicgames.gdx:gdx-tools:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+        implementation 'com.github.tommyettinger:colorful:0.2.0'
+    }
+
+    sourceSets.main.java.srcDirs = [ "src/" ]
+
+    project.ext.mainClassName = "com.mygdx.game.desktop.DesktopLauncher"
+    project.ext.assetsDir = new File("../core/assets");
+
+    task run(type: JavaExec) {
+        main = project.ext.mainClassName
+        classpath = sourceSets.main.runtimeClasspath
+        standardInput = System.in
+        workingDir = project.ext.assetsDir
+        ignoreExitValue = true
     }
 }
 
 project(":core") {
     apply plugin: "java"
 
-    sourceSets.test.java.srcDirs = ["/test"]
+    sourceSets.main.java.srcDirs = ["/src"]
+    //sourceSets.test.java.srcDirs = ["/test"]
 
     dependencies {
-        compile "junit:junit:4.+"
-        compile "org.mockito:mockito-all:1.9.+"
-        compile "com.strongjoshua:libgdx-inGameConsole:1.0.0"
 
-        compile "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx-ai:$aiVersion"
-        compile "com.badlogicgames.ashley:ashley:$ashleyVersion"
+        implementation "junit:junit:4.+"
+        implementation "org.mockito:mockito-all:1.9.+"
+        implementation "com.strongjoshua:libgdx-inGameConsole:1.0.0"
+        implementation 'com.github.Valkryst:VNameGenerator:2.0.0'
+        implementation 'com.github.fabio-t:terrain-generator:0.1.2'
 
-        compile "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
-        compile "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
-        compile "com.badlogicgames.gdx:gdx-tools:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+        compile "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+        implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-ai:$aiVersion"
 
-        compileOnly "org.projectlombok:lombok:1.18.10"
-        annotationProcessor "org.projectlombok:lombok:1.18.10"
+        implementation "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+        implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+        implementation "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
+        implementation "com.badlogicgames.gdx:gdx-tools:$gdxVersion"
+        implementation "com.badlogicgames.ashley:ashley:$ashleyVersion"
+
+        implementation group: 'com.squidpony', name: 'squidlib-parent', version: '3.0.3', ext: 'pom'
+        implementation group: 'com.squidpony', name: 'squidlib-gdx', version: '3.0.0-b1', ext: 'pom'
+        implementation group: 'com.squidpony', name: 'squidlib', version: '3.0.3'
+        implementation group: 'com.squidpony', name: 'squidlib-extra', version: '3.0.3'
+        implementation group: 'com.squidpony', name: 'squidlib-util', version: '3.0.3'
+        implementation group: 'javaxt', name: 'javaxt-core', version: '1.7.8'
+
+        implementation "com.sudoplay.joise:joise:$joiseVersion"
+        implementation "com.kotcrab.vis:vis-ui:$visuiVersion"
+
+        implementation "org.projectlombok:lombok:1.18.10"
     }
-}
-
-tasks.eclipse.doLast {
-    delete ".project"
 }
