@@ -51,10 +51,13 @@ Largest map tried was 4096x4096 but is rendered with just 1fps on middle-tier de
     - all NPC's and PC's grow older (once a day is enough)
     - towns renew shop items
 
+### Screenshots
+![Biome map](core/assets/screenshots/terragen.png)
+![Biome map](core/assets/screenshots/squid_tiling.png)
+![Biome map](core/assets/screenshots/cartezza.png)
+![Biome map](core/assets/screenshots/detail.png)
 
-
-
-### Sample maps
+### Sample layers of world
 ------------ | ------------- | 
 ------------ | ------------- |
 Biome ![Biome map](core/assets/world/-7415453185662118886/texture/biomemap.png) | Heat: ![Biome map](core/assets/world/-7415453185662118886/texture/heatmap.png)

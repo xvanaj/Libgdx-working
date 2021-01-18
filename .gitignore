@@ -1,5 +1,4 @@
 ## Java
-
 *.class
 *.war
 *.ear
@@ -101,30 +100,7 @@ nb-configuration.xml
 /local.properties
 .gradle/
 gradle-app.setting
-/build/
-/android/build/
-/core/build/
-/desktop/build/
-/html/build/
-/ios/build/
-/ios-moe/build/
 
 ## OS Specific
 .DS_Store
 Thumbs.db
-
-## iOS
-/ios/xcode/*.xcodeproj/*
-!/ios/xcode/*.xcodeproj/xcshareddata
-!/ios/xcode/*.xcodeproj/project.pbxproj
-/ios/xcode/native/
-
-/ios-moe/xcode/*.xcodeproj/*
-!/ios-moe/xcode/*.xcodeproj/xcshareddata
-!/ios-moe/xcode/*.xcodeproj/project.pbxproj
-/ios-moe/xcode/native/
-/doc_and_working/
-/d9l55gq-f28b3797-5464-4ff7-bdac-513692bd0930.gif
-/water.gif
-/core/src/com/mygdx/game/unused/
-/unused/
