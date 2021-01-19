@@ -39,13 +39,15 @@ octaves, scale, frequency of perlin noise etc...
 - LibGdx particle system, simple character animations
 
 ### Screenshots
-All screenshots are zoomed out largely. For close view check last screenshot
+All screenshots are zoomed out at least 10x. For closer view check last screenshot
+
 Islands
 ![Biome map](core/assets/screenshots/terragen.png)
 ![Biome map](core/assets/screenshots/terragen2.png)
-Classic
+Classic 512 * 512
 ![Biome map](core/assets/screenshots/squid_tiling.png)
 ![Biome map](core/assets/screenshots/cartezza.png)
+Classic 1024 * 1024
 ![Biome map](core/assets/screenshots/cartezza2.png)
 Diamond square algorithm
 ![Biome map](core/assets/screenshots/diamond_square.png)
@@ -105,5 +107,5 @@ Icons - mostly from hive workshop. Credits to each one of the icons (or group of
 
 VisUi - just libgdx skin with some new useful UI components. Great to have 
 
-VNameGenerator = by Valkryst. Library for generation of words based on some input file. Based on markov chains but I think there are more options
+VNameGenerator = by Valkryst. Library for generation of words based on some input file. Based on markov chains but I think there are more options. Used for generation of character names
 
